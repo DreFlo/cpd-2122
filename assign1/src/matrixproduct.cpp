@@ -243,30 +243,36 @@ void get_results(){
 	if (ret != PAPI_OK) cout << "ERROR: PAPI_L2_DCM" << ret << endl;
 
 	ret = PAPI_add_event(EventSet, PAPI_TLB_DM); //Derived
-	if (ret != PAPI_OK) cout << "ERROR: PAPI_TLB_DM" << ret << endl;*/
+	if (ret != PAPI_OK) cout << "ERROR: PAPI_TLB_DM" << ret << endl;
+
+	ret = PAPI_add_event(EventSet,PAPI_L2_DCA); //Not Derived
+	if (ret != PAPI_OK) cout << "ERROR: PAPI_L2_DCA" << ret << endl;
+
+	ret = PAPI_add_event(EventSet,PAPI_L3_DCA); //Derived
+	if (ret != PAPI_OK) cout << "ERROR: PAPI_L3_DCA" << ret << endl;*/
 
 	//File
 	fstream fout;
-	fout.open("Results_seven_c++.csv", ios::out | ios::trunc);
+	fout.open("Results_256_block_c++.csv", ios::out | ios::trunc);
 
 	//Normal Multiplication
 	
-	fout << "Matrix Size; Time; PAPI_L1_DCM; PAPI_CA_SNP; PAPI_L3_LDM; PAPI_PRF_DM; PAPI_MEM_WCY; PAPI_L1_LDM; PAPI_L2_LDM; \n";
-	/*fout << "PAPI_L2_DCM; PAPI_TLB_DM\n";*/
-
+	/*fout << "Matrix Size; Time; PAPI_L1_DCM; PAPI_CA_SNP; PAPI_L3_LDM; PAPI_PRF_DM; PAPI_MEM_WCY; PAPI_L1_LDM; PAPI_L2_LDM; \n";*/
+	/*fout << "Matrix Size; Time; PAPI_L2_DCM; PAPI_TLB_DM; PAPI_L2_DCA; PAPI_L3_DCA\n";
+	
 	for(int i = 600; i <= 3000; i += 400){
 		ret = PAPI_start(EventSet);
 		if (ret != PAPI_OK) cout << "ERROR: Start PAPI" << endl;
 
 		double time = OnMult(i, i);
 
-		long long values[7];
-		for(int i = 0; i < 7; i++) values[i] = 0;
+		long long values[4];
+		for(int i = 0; i < 4; i++) values[i] = 0;
 		ret = PAPI_stop(EventSet, values);
 		if (ret != PAPI_OK) cout << "ERROR: Stop PAPI" << endl;
 
 		fout << i << "; " << time;
-		for(int v = 0; v < 7; v++){
+		for(int v = 0; v < 4; v++){
 			fout << "; " << values[v];
 		}
 		fout << "\n";
@@ -275,11 +281,11 @@ void get_results(){
 		if ( ret != PAPI_OK )
 			std::cout << "FAIL reset" << endl;
 	}
-	fout << "\n\n";
+	fout << "\n\n";*/
 	
 	//Line Multiplication
-	fout << "Matrix Size; Time; PAPI_L1_DCM; PAPI_CA_SNP; PAPI_L3_LDM; PAPI_PRF_DM; PAPI_MEM_WCY; PAPI_L1_LDM; PAPI_L2_LDM; \n";
-	/*fout << "PAPI_L2_DCM; PAPI_TLB_DM\n";*/
+	/*fout << "Matrix Size; Time; PAPI_L1_DCM; PAPI_CA_SNP; PAPI_L3_LDM; PAPI_PRF_DM; PAPI_MEM_WCY; PAPI_L1_LDM; PAPI_L2_LDM; \n";*/
+	/*fout << "Matrix Size; Time; PAPI_L2_DCM; PAPI_TLB_DM; PAPI_L2_DCA; PAPI_L3_DCA\n";
 
 	for(int i = 600; i <= 3000; i += 400){
 		ret = PAPI_start(EventSet);
@@ -287,13 +293,13 @@ void get_results(){
 
 		double time = OnMultLine(i, i);
 
-		long long values[7];
-		for(int i = 0; i < 7; i++) values[i] = 0;
+		long long values[4];
+		for(int i = 0; i < 4; i++) values[i] = 0;
 		ret = PAPI_stop(EventSet, values);
 		if (ret != PAPI_OK) cout << "ERROR: Stop PAPI" << endl;
 
 		fout << i << "; " << time;
-		for(int v = 0; v < 7; v++){
+		for(int v = 0; v < 4; v++){
 			fout << "; " << values[v];
 		}
 		fout << "\n";
@@ -308,13 +314,13 @@ void get_results(){
 
 		double time = OnMultLine(i, i);
 
-		long long values[7];
-		for(int i = 0; i < 7; i++) values[i] = 0;
+		long long values[4];
+		for(int i = 0; i < 4; i++) values[i] = 0;
 		ret = PAPI_stop(EventSet, values);
 		if (ret != PAPI_OK) cout << "ERROR: Stop PAPI" << endl;
 
 		fout << i << "; " << time;
-		for(int v = 0; v < 7; v++){
+		for(int v = 0; v < 4; v++){
 			fout << "; " << values[v];
 		}
 		fout << "\n";
@@ -323,14 +329,14 @@ void get_results(){
 		if ( ret != PAPI_OK )
 			std::cout << "FAIL reset" << endl;
 	}
-	fout << "\n\n";
+	fout << "\n\n";*/
 	
 	//Block Multiplication
 	fout << "Matrix Size; Block Size; Time; PAPI_L1_DCM; PAPI_CA_SNP; PAPI_L3_LDM; PAPI_PRF_DM; PAPI_MEM_WCY; PAPI_L1_LDM; PAPI_L2_LDM; \n";
-	/*fout << "PAPI_L2_DCM; PAPI_TLB_DM\n";*/
+	/*fout << "Matrix Size; Block Size; Time; PAPI_L2_DCM; PAPI_TLB_DM; PAPI_L2_DCA; PAPI_L3_DCA\n";*/
 
-	for(int i = 4096; i <= 10240; i += 2048){
-		for(int j = 128; j <= 4096; j *= 2){
+	for(int i = 8192; i <= 8192; i += 2048){
+		for(int j = 256; j <= 256; j *= 2){
 			ret = PAPI_start(EventSet);
 			if (ret != PAPI_OK) cout << "ERROR: Start PAPI" << endl;
 
@@ -357,15 +363,7 @@ void get_results(){
 	if ( ret != PAPI_OK )
 		std::cout << "FAIL remove event" << endl; 
 
-	ret = PAPI_remove_event( EventSet, PAPI_L2_DCM );
-	if ( ret != PAPI_OK )
-		std::cout << "FAIL remove event" << endl; 
-	
 	ret = PAPI_remove_event( EventSet, PAPI_CA_SNP );
-	if ( ret != PAPI_OK )
-		std::cout << "FAIL remove event" << endl; 
-
-	ret = PAPI_remove_event( EventSet, PAPI_TLB_DM );
 	if ( ret != PAPI_OK )
 		std::cout << "FAIL remove event" << endl; 
 
@@ -379,13 +377,29 @@ void get_results(){
 
 	ret = PAPI_remove_event( EventSet, PAPI_L3_LDM );
 	if ( ret != PAPI_OK )
-		std::cout << "FAIL remove event" << endl; 
+		std::cout << "FAIL remove event" << endl;
 
-	/*ret = PAPI_remove_event( EventSet, PAPI_PRF_DM );
+	ret = PAPI_remove_event( EventSet, PAPI_PRF_DM );
 	if ( ret != PAPI_OK )
 		std::cout << "FAIL remove event" << endl; 
 
 	ret = PAPI_remove_event( EventSet, PAPI_MEM_WCY );
+	if ( ret != PAPI_OK )
+		std::cout << "FAIL remove event" << endl;
+
+	/*ret = PAPI_remove_event( EventSet, PAPI_L2_DCM );
+	if ( ret != PAPI_OK )
+		std::cout << "FAIL remove event" << endl; 
+
+	ret = PAPI_remove_event( EventSet, PAPI_TLB_DM );
+	if ( ret != PAPI_OK )
+		std::cout << "FAIL remove event" << endl; 
+
+	ret = PAPI_remove_event( EventSet, PAPI_L2_DCA );
+	if ( ret != PAPI_OK )
+		std::cout << "FAIL remove event" << endl;
+
+	ret = PAPI_remove_event( EventSet, PAPI_L3_DCA );
 	if ( ret != PAPI_OK )
 		std::cout << "FAIL remove event" << endl;*/
 
