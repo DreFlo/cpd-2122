@@ -12,11 +12,19 @@ public abstract class MessageHandler<T extends Message> implements Runnable {
         this.message = message;
     }
 
+    public abstract void handle();
+
     public Store getStore() {
         return store;
     }
 
     public T getMessage() {
         return message;
+    }
+
+    @Override
+    public final void run() {
+        handle();
+        getStore().getHandledReceivedMessages().push(message);
     }
 }

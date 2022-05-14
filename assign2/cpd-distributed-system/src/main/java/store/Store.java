@@ -25,11 +25,14 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
     private final InetSocketAddress group;
     private final int port;
     private final NetworkInterface networkInterface;
+    private final Stack<Message> sentMessages;
+    private final Stack<Message> handledReceivedMessages;
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
 
     Store(char[] id, InetSocketAddress group, int storePort) throws IOException {
         this.id = id;
         this.port = storePort;
+
         this.clusterSocket = new DatagramSocket(null);
         this.clusterSocket.setReuseAddress(true);
         this.clusterSocket.bind(new InetSocketAddress(group.getPort()));
@@ -40,6 +43,9 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         this.group = group;
         this.keyNodeTable = new HashMap<>();
         this.networkInterface = NetworkInterface.getByName("lo");
+
+        this.sentMessages = new Stack<>();
+        this.handledReceivedMessages = new Stack<>();
     }
 
     public static void main(String[] args) throws ClassNotFoundException {
@@ -82,24 +88,31 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         return networkInterface;
     }
 
+    public Stack<Message> getSentMessages() {
+        return sentMessages;
+    }
+
+    public Stack<Message> getHandledReceivedMessages() {
+        return handledReceivedMessages;
+    }
 
     public void incrementMembershipCounter() throws IOException {
-        Integer membershipCounter = getMembershipCounter();
+        int membershipCounter = getMembershipCounter();
         membershipCounter++;
         Writer writer = new FileWriter(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_counter");
-        writer.write(membershipCounter.toString());
+        writer.write(Integer.toString(membershipCounter));
         writer.close();
     }
 
     public int getMembershipCounter() throws IOException {
-        Integer membershipCounter = 0;
+        int membershipCounter = 0;
         File directory = new File(Utils.keyToString(id));
         File file = new File(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_counter");
 
         if (directory.mkdir()) {
             file.createNewFile();
             Writer writer = new FileWriter(file);
-            writer.write(membershipCounter.toString());
+            writer.write(Integer.toString(membershipCounter));
             writer.close();
         } else {
             Scanner scanner = new Scanner(file);
@@ -121,17 +134,15 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
 
                 ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-                var future = executorService.submit(() -> {
+                Future<?> future = executorService.submit(() -> {
                     while (true) {
                         try {
-                            Socket socket;
-                            socket = nodeSocket.accept();
-                            InputStream inputStream = socket.getInputStream();
-                            byte[] bytes = new byte[4096];
-                            int read = inputStream.read(bytes);
-                            messages.add((MembershipMessage) Message.fromBytes(bytes));
+                            Message message = receive(nodeSocket);
+                            if (message instanceof MembershipMessage) {
+                                messages.add((MembershipMessage) message);
+                            }
                             if (messages.size() > 2) return;
-                        } catch (IOException | ClassNotFoundException e) {
+                        } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     }
@@ -142,7 +153,7 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
                 } catch (ExecutionException | InterruptedException e) {
                     throw new RuntimeException(e);
                 } catch (TimeoutException e) {
-                    System.out.println("Timeout");
+                    System.out.println("Timeout number " + (i + 1));
                 }
 
                 System.out.println(messages);
@@ -167,12 +178,10 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         }
     }
 
-    public void listen() throws IOException, ClassNotFoundException {
+    public void listen() throws IOException {
         ExecutorService executorService = Executors.newFixedThreadPool(20);
         while (true) {
-            DatagramPacket datagramPacket = new DatagramPacket(new byte[4096], 4096);
-            clusterSocket.receive(datagramPacket);
-            Message message = Message.fromBytes(datagramPacket.getData());
+            Message message = receive(clusterSocket);
             System.out.println("RECEIVED:\n" + message + "\n");
             executorService.submit(new JoinLeaveMessageHandler(this, (JoinLeaveMessage) message));
         }
@@ -190,16 +199,39 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         DatagramPacket datagramPacket = new DatagramPacket(message_, message_.length, address);
         sendSocket.send(datagramPacket);
         sendSocket.close();
+        sentMessages.push(message);
         System.out.println("SENT BY UDP:\n" + message + "\n");
     }
 
     /**
      * Sends message through socket and closes socket
      */
-    public void sendTCP(Message  message, Socket socket) throws IOException {
+    public void sendTCP(Message message, Socket socket) throws IOException {
         socket.getOutputStream().write(message.toBytes());
         socket.close();
+        sentMessages.push(message);
         System.out.println("SENT BY TCP:\n" + message + "\n");
+    }
+
+    /**
+     * Reads a message from a ServerSocket
+     */
+    public Message receive(ServerSocket serverSocket) throws IOException {
+        Socket socket;
+        socket = serverSocket.accept();
+        InputStream inputStream = socket.getInputStream();
+        byte[] bytes = new byte[4096];
+        int read = inputStream.read(bytes);
+        return Message.fromBytes(bytes);
+    }
+
+    /**
+     * Reads a message from a DatagramSocket
+     */
+    public Message receive(DatagramSocket datagramSocket) throws IOException {
+        DatagramPacket datagramPacket = new DatagramPacket(new byte[4096], 4096);
+        datagramSocket.receive(datagramPacket);
+        return Message.fromBytes(datagramPacket.getData());
     }
 
     public Integer getPort() {

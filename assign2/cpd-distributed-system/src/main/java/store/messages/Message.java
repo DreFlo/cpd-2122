@@ -37,10 +37,15 @@ public abstract class Message implements Serializable {
                 "PORT\t" + port + "\n";
     }
 
-    public static Message fromBytes(byte[] bytes) throws IOException, ClassNotFoundException {
+    public static Message fromBytes(byte[] bytes) throws IOException{
         ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
         ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(bais));
-        Object o = ois.readObject();
+        Object o = null;
+        try {
+            o = ois.readObject();
+        } catch (ClassNotFoundException e) {
+            o = new NullMessage(bytes);
+        }
         return (Message) o;
     }
 

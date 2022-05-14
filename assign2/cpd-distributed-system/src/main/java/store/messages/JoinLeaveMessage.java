@@ -13,4 +13,8 @@ public class JoinLeaveMessage extends Message {
                 "TYPE\tJOIN/LEAVE\n" +
                 "MEMBERSHIP_COUNTER\t" + membershipCounter;
     }
+
+    public boolean isLeave() {
+        return (this.membershipCounter % 2) == 1;
+    }
 }

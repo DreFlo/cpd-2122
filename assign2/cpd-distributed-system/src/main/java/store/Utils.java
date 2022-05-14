@@ -21,4 +21,8 @@ public class Utils {
         }
         return key.toString();
     }
+
+    public static boolean exclusiveOr(boolean lhs, boolean rhs) {
+        return (lhs && !rhs) || (!lhs && rhs);
+    }
 }
