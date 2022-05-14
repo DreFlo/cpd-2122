@@ -1,3 +1,5 @@
+package store;
+
 public class Utils {
     public static char[] stringToKey(String stringKey) {
         char[] key = new char[256];

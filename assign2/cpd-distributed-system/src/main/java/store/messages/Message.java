@@ -1,13 +1,19 @@
-import java.io.*;
-import java.util.Objects;
+package store.messages;
 
-public class Message implements Serializable{
+import java.io.*;
+import store.Utils;
+
+public abstract class Message implements Serializable {
     String header;
     Object body;
+    char[] id;
+    int port;
 
-    Message(String header, Object body) {
+    public Message(String header, Object body, char[] id, int port) {
         this.header = header;
         this.body = body;
+        this.id = id;
+        this.port = port;
     }
 
     public String getHeader() {
@@ -18,9 +24,17 @@ public class Message implements Serializable{
         return body;
     }
 
+    public char[] getId() {
+        return id;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
     public static String getHeaderMsg(char[] nodeId, int port) {
-        return "NODE:\t" + Utils.keyToString(nodeId) + "\n" +
-                "PORT:\t" + port + "\n";
+        return "NODE\t" + Utils.keyToString(nodeId) + "\n" +
+                "PORT\t" + port + "\n";
     }
 
     public static Message fromBytes(byte[] bytes) throws IOException, ClassNotFoundException {
@@ -30,7 +44,7 @@ public class Message implements Serializable{
         return (Message) o;
     }
 
-    byte[] toBytes() {
+    public byte[] toBytes() {
         try (
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 ObjectOutputStream oos = new ObjectOutputStream(bos)
@@ -42,6 +56,11 @@ public class Message implements Serializable{
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public String toString() {
+        return header;
     }
 
     @Override
