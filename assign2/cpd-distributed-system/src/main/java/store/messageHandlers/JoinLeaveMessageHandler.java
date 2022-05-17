@@ -1,7 +1,7 @@
 package store.messageHandlers;
 
-import store.ClusterNodeInformation;
-import store.MembershipEvent;
+import store.storeRecords.ClusterNodeInformation;
+import store.storeRecords.MembershipEvent;
 import store.Store;
 import store.Utils;
 import store.messages.JoinLeaveMessage;
@@ -21,7 +21,6 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
     @Override
     public void handle() {
         System.out.println("Handling JoinLeaveMessage\n\n");
-        if (Arrays.equals(getMessage().getId(), getStore().getId())) return;
 
         Stack<Message> receivedMessagesStack = (Stack<Message>) getStore().getHandledReceivedMessages().clone();
 

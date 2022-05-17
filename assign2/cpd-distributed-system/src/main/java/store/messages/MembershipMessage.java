@@ -1,7 +1,7 @@
 package store.messages;
 
-import store.ClusterNodeInformation;
-import store.MembershipEvent;
+import store.storeRecords.ClusterNodeInformation;
+import store.storeRecords.MembershipEvent;
 import store.Utils;
 
 import java.util.ArrayList;

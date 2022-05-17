@@ -26,7 +26,7 @@ public abstract class Message implements Serializable {
     public static Message fromBytes(byte[] bytes) throws IOException{
         ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
         ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(bais));
-        Object o = null;
+        Object o;
         try {
             o = ois.readObject();
         } catch (ClassNotFoundException e) {
@@ -59,8 +59,7 @@ public abstract class Message implements Serializable {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Message)) return false;
-        Message message = (Message) o;
+        if (!(o instanceof Message message)) return false;
         return getPort() == message.getPort() && Arrays.equals(getId(), message.getId());
     }
 

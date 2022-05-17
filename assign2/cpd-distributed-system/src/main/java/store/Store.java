@@ -1,21 +1,17 @@
 package store;
 
-import store.messageHandlers.JoinLeaveMessageHandler;
+import jdk.jshell.spi.ExecutionControl;
+import store.messageHandlers.MessageHandlerBuilder;
 import store.messages.JoinLeaveMessage;
 import store.messages.MembershipMessage;
 import store.messages.Message;
+import store.storeRecords.ClusterNodeInformation;
+import store.storeRecords.MembershipEvent;
 
 import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
-
-/* Create UDP Socket
- * DatagramSocket sendSocket = new DatagramSocket(null);
- * sendSocket.setReuseAddress(true);
- * sendSocket.bind(new InetSocketAddress(storePort));
- * sendSocket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true);
- * */
 
 public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
@@ -29,7 +25,7 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
     private final Stack<Message> sentMessages;
     private final Stack<Message> handledReceivedMessages;
     private final List<MembershipEvent> membershipEvents;
-    private final Set<ClusterNodeInformation> clusterNodes;
+    private Set<ClusterNodeInformation> clusterNodes;
 
     Store(char[] id, InetSocketAddress group, int storePort) throws IOException {
         this.id = id;
@@ -59,7 +55,7 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         this.clusterNodes.add(new ClusterNodeInformation(getId(), getPort()));
     }
 
-    public static void main(String[] args) throws ClassNotFoundException {
+    public static void main(String[] args) {
         try {
             InetAddress IP_mcast_addr = InetAddress.getByName(args[0]);
             int IP_mcast_port = Integer.parseInt(args[1]);
@@ -104,10 +100,11 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
 
     }
 
-    public void addMembershipEvent(MembershipEvent newMembershipEvent) {
+    public boolean addMembershipEvent(MembershipEvent newMembershipEvent) {
         MembershipEvent oldMembershipEvent = checkMembershipEventInLog(newMembershipEvent);
         if (oldMembershipEvent == null) {
             this.membershipEvents.add(newMembershipEvent);
+            return true;
         }
         else if (oldMembershipEvent.membershipCounter() < newMembershipEvent.membershipCounter()) {
             this.membershipEvents.remove(oldMembershipEvent);
@@ -120,7 +117,9 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
             } catch (IOException e) {
                 System.out.println("Could not register new membership event");
             }
+            return true;
         }
+        return false;
     }
 
     private MembershipEvent checkMembershipEventInLog(MembershipEvent newEvent) {
@@ -184,6 +183,10 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         return clusterNodes;
     }
 
+    public void setClusterNodes(Set<ClusterNodeInformation> clusterNodes) {
+        this.clusterNodes = clusterNodes;
+    }
+
     public void incrementMembershipCounter() throws IOException {
         int membershipCounter = getMembershipCounter();
         membershipCounter++;
@@ -224,8 +227,8 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
                     while (true) {
                         try {
                             Message message = receive(nodeSocket);
-                            if (message instanceof MembershipMessage) {
-                                messages.add((MembershipMessage) message);
+                            if (message instanceof MembershipMessage membershipMessage) {
+                                messages.add(membershipMessage);
                             }
                             if (messages.size() > 2) return;
                         } catch (IOException e) {
@@ -265,11 +268,20 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
     }
 
     public void listen() throws IOException {
-        ExecutorService executorService = Executors.newFixedThreadPool(20);
+        ExecutorService executorService = Executors.newFixedThreadPool(21);
+
+        // Ping broadcast with membership every 1 second
+        executorService.submit(new MembershipPing(this));
+
+        // Receive messages
         while (true) {
             Message message = receive(clusterSocket);
             System.out.println("RECEIVED:\n" + message + "\n");
-            executorService.submit(new JoinLeaveMessageHandler(this, (JoinLeaveMessage) message));
+            try {
+                executorService.submit(MessageHandlerBuilder.get(this, message));
+            } catch (ExecutionControl.NotImplementedException e) {
+                System.out.println("No handler found: " + e);
+            }
         }
     }
 
@@ -286,7 +298,7 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         sendSocket.send(datagramPacket);
         sendSocket.close();
         sentMessages.push(message);
-        System.out.println("SENT BY UDP:\n" + message + "\n");
+        System.out.println("SENT BY UDP:\n\n" + message + "\n\n");
     }
 
     /**
@@ -296,7 +308,7 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         socket.getOutputStream().write(message.toBytes());
         socket.close();
         sentMessages.push(message);
-        System.out.println("SENT BY TCP:\n" + message + "\n");
+        System.out.println("SENT BY TCP:\n\n" + message + "\n\n");
     }
 
     /**

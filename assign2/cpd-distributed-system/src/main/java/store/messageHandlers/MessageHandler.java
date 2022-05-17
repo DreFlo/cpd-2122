@@ -3,6 +3,8 @@ package store.messageHandlers;
 import store.messages.Message;
 import store.Store;
 
+import java.util.Arrays;
+
 public abstract class MessageHandler<T extends Message> implements Runnable {
     private final Store store;
     private final T message;
@@ -24,7 +26,12 @@ public abstract class MessageHandler<T extends Message> implements Runnable {
 
     @Override
     public final void run() {
-        handle();
+        if (Arrays.equals(message.getId(), store.getId())) {
+            System.out.println("Ignoring message sent by self");
+        }
+        else {
+            handle();
+        }
         getStore().getHandledReceivedMessages().push(message);
     }
 }
