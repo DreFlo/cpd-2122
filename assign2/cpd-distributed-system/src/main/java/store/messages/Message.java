@@ -1,27 +1,18 @@
 package store.messages;
 
-import java.io.*;
 import store.Utils;
 
+import java.io.*;
+import java.util.Arrays;
+import java.util.Objects;
+
 public abstract class Message implements Serializable {
-    String header;
-    Object body;
     char[] id;
     int port;
 
-    public Message(String header, Object body, char[] id, int port) {
-        this.header = header;
-        this.body = body;
+    public Message(char[] id, int port) {
         this.id = id;
         this.port = port;
-    }
-
-    public String getHeader() {
-        return header;
-    }
-
-    public Object getBody() {
-        return body;
     }
 
     public char[] getId() {
@@ -30,11 +21,6 @@ public abstract class Message implements Serializable {
 
     public int getPort() {
         return port;
-    }
-
-    public static String getHeaderMsg(char[] nodeId, int port) {
-        return "NODE\t" + Utils.keyToString(nodeId) + "\n" +
-                "PORT\t" + port + "\n";
     }
 
     public static Message fromBytes(byte[] bytes) throws IOException{
@@ -49,7 +35,7 @@ public abstract class Message implements Serializable {
         return (Message) o;
     }
 
-    public byte[] toBytes() {
+    public final byte[] toBytes() {
         try (
                 ByteArrayOutputStream bos = new ByteArrayOutputStream();
                 ObjectOutputStream oos = new ObjectOutputStream(bos)
@@ -63,20 +49,25 @@ public abstract class Message implements Serializable {
         }
     }
 
-    @Override
     public String toString() {
-        return header;
-    }
-
-    @Override
-    public int hashCode() {
-        return  header.hashCode();
+        return
+                "Type - " + getClass().getName() + "\n" +
+                "Node - " + Utils.keyToString(id) + "\n" +
+                "Port - " + port + "\n";
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Message message)) return false;
-        return getHeader().equals(message.getHeader());
+        if (!(o instanceof Message)) return false;
+        Message message = (Message) o;
+        return getPort() == message.getPort() && Arrays.equals(getId(), message.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(getPort());
+        result = 31 * result + Arrays.hashCode(getId());
+        return result;
     }
 }

@@ -11,13 +11,14 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /* Create UDP Socket
-* DatagramSocket sendSocket = new DatagramSocket(null);
-* sendSocket.setReuseAddress(true);
-* sendSocket.bind(new InetSocketAddress(storePort));
-* sendSocket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true);
-* */
+ * DatagramSocket sendSocket = new DatagramSocket(null);
+ * sendSocket.setReuseAddress(true);
+ * sendSocket.bind(new InetSocketAddress(storePort));
+ * sendSocket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true);
+ * */
 
 public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
+    private static final long STANDARD_TIMEOUT_SECONDS = 3;
     private final char[] id;
     private final DatagramSocket clusterSocket;
     private final ServerSocket nodeSocket;
@@ -27,10 +28,14 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
     private final NetworkInterface networkInterface;
     private final Stack<Message> sentMessages;
     private final Stack<Message> handledReceivedMessages;
-    private static final long STANDARD_TIMEOUT_SECONDS = 3;
+    private final List<MembershipEvent> membershipEvents;
+    private final Set<ClusterNodeInformation> clusterNodes;
 
     Store(char[] id, InetSocketAddress group, int storePort) throws IOException {
         this.id = id;
+
+        initializeDirectory();
+
         this.port = storePort;
 
         this.clusterSocket = new DatagramSocket(null);
@@ -46,6 +51,12 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
 
         this.sentMessages = new Stack<>();
         this.handledReceivedMessages = new Stack<>();
+
+        this.membershipEvents = new ArrayList<>();
+        initializeMembershipEvents();
+
+        this.clusterNodes = new HashSet<>();
+        this.clusterNodes.add(new ClusterNodeInformation(getId(), getPort()));
     }
 
     public static void main(String[] args) throws ClassNotFoundException {
@@ -62,6 +73,75 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void initializeDirectory() {
+        File directory = new File(Utils.keyToString(id));
+        if (directory.mkdir()) {
+            System.out.println("Created new directory");
+        } else {
+            System.out.println("Directory already existed");
+        }
+    }
+
+    private void initializeMembershipEvents() throws IOException {
+        File file = new File(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_log");
+
+        if (file.createNewFile()) {
+            System.out.println("Created membership log");
+        } else {
+            System.out.println("Opened membership log");
+            Scanner scanner = new Scanner(file);
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                List<String> splitLine = List.of(line.split(" "));
+                this.membershipEvents.add(new MembershipEvent(Utils.stringToKey(splitLine.get(0)), Integer.parseInt(splitLine.get(1))));
+            }
+            scanner.close();
+        }
+        // TODO PAY ATTENTION TO LIST
+        addMembershipEvent(new MembershipEvent(getId(), getMembershipCounter()));
+
+    }
+
+    public void addMembershipEvent(MembershipEvent newMembershipEvent) {
+        MembershipEvent oldMembershipEvent = checkMembershipEventInLog(newMembershipEvent);
+        if (oldMembershipEvent == null) {
+            this.membershipEvents.add(newMembershipEvent);
+        }
+        else if (oldMembershipEvent.membershipCounter() < newMembershipEvent.membershipCounter()) {
+            this.membershipEvents.remove(oldMembershipEvent);
+            this.membershipEvents.add(newMembershipEvent);
+            File file = new File(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_log");
+            try (Writer writer = new FileWriter(file)) {
+                for (MembershipEvent membershipEvent : this.membershipEvents) {
+                    writer.write(Utils.keyToString(membershipEvent.nodeId()).concat(" ").concat(Integer.toString(membershipEvent.membershipCounter())).concat("\n"));
+                }
+            } catch (IOException e) {
+                System.out.println("Could not register new membership event");
+            }
+        }
+    }
+
+    private MembershipEvent checkMembershipEventInLog(MembershipEvent newEvent) {
+        for (MembershipEvent membershipEvent : membershipEvents) {
+            if (Arrays.equals(membershipEvent.nodeId(), newEvent.nodeId())) {
+                return membershipEvent;
+            }
+        }
+        return null;
+    }
+
+    public List<MembershipEvent> getMostRecentMembershipEvents() {
+        return this.membershipEvents.subList(Math.max(0, this.membershipEvents.size() - 32), this.membershipEvents.size());
+    }
+
+    public void removeNodeFromClusterRecord(ClusterNodeInformation clusterNodeInformation) {
+        this.clusterNodes.remove(clusterNodeInformation);
+    }
+
+    public void addNodeToClusterRecord(ClusterNodeInformation clusterNodeInformation) {
+        this.clusterNodes.add(clusterNodeInformation);
     }
 
     public char[] getId() {
@@ -96,6 +176,14 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         return handledReceivedMessages;
     }
 
+    public List<MembershipEvent> getMembershipEvents() {
+        return membershipEvents;
+    }
+
+    public Set<ClusterNodeInformation> getClusterNodes() {
+        return clusterNodes;
+    }
+
     public void incrementMembershipCounter() throws IOException {
         int membershipCounter = getMembershipCounter();
         membershipCounter++;
@@ -106,11 +194,9 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
 
     public int getMembershipCounter() throws IOException {
         int membershipCounter = 0;
-        File directory = new File(Utils.keyToString(id));
         File file = new File(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_counter");
 
-        if (directory.mkdir()) {
-            file.createNewFile();
+        if (file.createNewFile()) {
             Writer writer = new FileWriter(file);
             writer.write(Integer.toString(membershipCounter));
             writer.close();

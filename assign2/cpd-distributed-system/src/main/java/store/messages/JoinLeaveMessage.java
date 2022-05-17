@@ -1,20 +1,39 @@
 package store.messages;
 
+import java.util.Objects;
+
 public class JoinLeaveMessage extends Message {
     int membershipCounter;
 
     public JoinLeaveMessage(char[] id, int port, int membershipCounter) {
-        super(getHeaderMsg(id, port, membershipCounter), null, id, port);
+        super(id, port);
         this.membershipCounter = membershipCounter;
-    }
-
-    private static String getHeaderMsg(char[] nodeId, int port, int membershipCounter) {
-        return getHeaderMsg(nodeId, port) +
-                "TYPE\tJOIN/LEAVE\n" +
-                "MEMBERSHIP_COUNTER\t" + membershipCounter;
     }
 
     public boolean isLeave() {
         return (this.membershipCounter % 2) == 1;
+    }
+
+    public int getMembershipCounter() {
+        return membershipCounter;
+    }
+
+    @Override
+    public String toString() {
+        return
+                super.toString() +
+                "Membership Counter - " + membershipCounter + "\n";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof JoinLeaveMessage that)) return false;
+        return getMembershipCounter() == that.getMembershipCounter() && super.equals(o);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), getMembershipCounter());
     }
 }
