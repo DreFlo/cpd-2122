@@ -1,7 +1,9 @@
 package store;
 
 import jdk.jshell.spi.ExecutionControl;
+import store.messageHandlers.MessageHandler;
 import store.messageHandlers.MessageHandlerBuilder;
+import store.messages.GetMessage;
 import store.messages.JoinLeaveMessage;
 import store.messages.MembershipMessage;
 import store.messages.Message;
@@ -10,14 +12,16 @@ import store.storeRecords.MembershipEvent;
 
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
-public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
+public class Store implements ClusterMembership, KeyValueStore<String, Object> {
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
     private final char[] id;
     private final DatagramSocket clusterSocket;
-    private final ServerSocket nodeSocket;
+    private ServerSocket nodeSocket;
     private final Map<char[], char[]> keyNodeTable;
     private final InetSocketAddress group;
     private final int port;
@@ -183,6 +187,8 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         return clusterNodes;
     }
 
+    public Store getThis(){return this;}
+
     public void setClusterNodes(Set<ClusterNodeInformation> clusterNodes) {
         this.clusterNodes = clusterNodes;
     }
@@ -223,6 +229,7 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
 
                 ExecutorService executorService = Executors.newSingleThreadExecutor();
 
+
                 Future<?> future = executorService.submit(() -> {
                     while (true) {
                         try {
@@ -239,10 +246,19 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
 
                 try {
                     future.get(STANDARD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                } catch (ExecutionException | InterruptedException e) {
-                    throw new RuntimeException(e);
+                    nodeSocket.close();
+                    executorService.shutdownNow();
                 } catch (TimeoutException e) {
+                    if(i == 2){
+                        nodeSocket.close();
+                        future.cancel(true);
+                        executorService.shutdownNow();
+                    }
                     System.out.println("Timeout number " + (i + 1));
+                } catch (ExecutionException e) {
+
+                } catch (InterruptedException e) {
+
                 }
 
                 System.out.println(messages);
@@ -273,16 +289,46 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
         // Ping broadcast with membership every 1 second
         executorService.submit(new MembershipPing(this));
 
-        // Receive messages
-        while (true) {
-            Message message = receive(clusterSocket);
-            System.out.println("RECEIVED:\n" + message + "\n");
-            try {
-                executorService.submit(MessageHandlerBuilder.get(this, message));
-            } catch (ExecutionControl.NotImplementedException e) {
-                System.out.println("No handler found: " + e);
+        executorService.submit(listenUDP());
+        executorService.submit(listenTCP());
+    }
+
+    public Runnable listenUDP() throws IOException {
+        return new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    Message message = null;
+                    try {
+                        message = receive(clusterSocket);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    System.out.println("RECEIVED:\n" + message + "\n");
+                    try {
+                        MessageHandlerBuilder.get(getThis(), message);
+                    } catch (ExecutionControl.NotImplementedException e) {
+                        System.out.println("No handler found: " + e);
+                    }
+                }
             }
-        }
+        };
+    }
+
+    public Runnable listenTCP() throws IOException {
+        this.nodeSocket = new ServerSocket(getPort());
+        return new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    try {
+                        receiveMessage(getNodeSocket());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        };
     }
 
     /**
@@ -324,6 +370,32 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
     }
 
     /**
+     * Receives a tcp message, which will always be for key-value operations, and handles them
+     */
+    public void receiveMessage(ServerSocket serverSocket) throws IOException {
+        Socket socket;
+        socket = serverSocket.accept();
+        InputStream inputStream = socket.getInputStream();
+        byte[] bytes = new byte[4096];
+        int read = inputStream.read(bytes);
+        Message message = Message.fromBytes(bytes);
+
+        System.out.println("RECEIVED:\n" + message + "\n");
+
+        try {
+            MessageHandlerBuilder.get(getThis(), message).run();
+        } catch (ExecutionControl.NotImplementedException e) {
+            System.out.println("No handler found: " + e);
+        }
+
+        if(message instanceof GetMessage getMessage){
+            PrintWriter writer = new PrintWriter(socket.getOutputStream());
+            writer.write(getMessage.getValue());
+            writer.close();
+        }
+    }
+
+    /**
      * Reads a message from a DatagramSocket
      */
     public Message receive(DatagramSocket datagramSocket) throws IOException {
@@ -337,16 +409,33 @@ public class Store implements ClusterMembership, KeyValueStore<char[], Object> {
     }
 
     @Override
-    public void put(char[] key, Object value) {
+    public void put(String key, Object value) throws IOException {
+        //Add check if correct node by using hashing and if not send the put request to another
+
+        Writer writer = new FileWriter(Utils.keyToString(id) + "\\" + key);
+        writer.write(value.toString());
+        writer.close();
     }
 
     @Override
-    public Object get(char[] key) {
-        return null;
+    public String get(String key) {
+        //Add check if correct node by using hashing and if not send the get request to another
+
+        ClassLoader classLoader = Store.class.getClassLoader();
+        InputStream inputStream = classLoader.getResourceAsStream(Utils.keyToString(id) + "\\" + key);
+        String value = new BufferedReader(
+                new InputStreamReader(inputStream, StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
+
+        return value;
     }
 
     @Override
-    public void delete(char[] key) {
+    public void delete(String key) {
+        //Add check if correct node by using hashing and if not send the delete request to another
 
+        File keyFile = new File(Utils.keyToString(id) + "\\" + key);
+        keyFile.delete();
     }
 }

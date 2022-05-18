@@ -3,6 +3,8 @@ package store.messageHandlers;
 import store.messages.Message;
 import store.Store;
 
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 public abstract class MessageHandler<T extends Message> implements Runnable {
@@ -14,7 +16,7 @@ public abstract class MessageHandler<T extends Message> implements Runnable {
         this.message = message;
     }
 
-    public abstract void handle();
+    public abstract void handle() throws NoSuchAlgorithmException, IOException;
 
     public Store getStore() {
         return store;
@@ -30,7 +32,13 @@ public abstract class MessageHandler<T extends Message> implements Runnable {
             System.out.println("Ignoring message sent by self");
         }
         else {
-            handle();
+            try {
+                handle();
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException(e);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
         getStore().getHandledReceivedMessages().push(message);
     }
