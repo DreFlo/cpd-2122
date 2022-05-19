@@ -2,9 +2,9 @@ package store.messages;
 
 public class GetMessage extends Message{
     private final String key;
-    private String value;
+    private byte[] value;
 
-    public GetMessage(char[] id, int port, String key) {
+    public GetMessage(String id, int port, String key) {
         super(id, port);
         this.key = key;
     }
@@ -13,11 +13,11 @@ public class GetMessage extends Message{
         return key;
     }
 
-    public String getValue() {
+    public byte[] getValue() {
         return value;
     }
 
-    public void setValue(String value) {
+    public void setValue(byte[] value) {
         this.value = value;
     }
 

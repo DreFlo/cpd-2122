@@ -6,7 +6,7 @@ import store.storeRecords.MembershipEvent;
 
 public class MembershipMessageHandler extends MessageHandler<MembershipMessage> {
     public MembershipMessageHandler(Store store, MembershipMessage message) {
-        super(store, message);
+        super(store, message, null);
     }
 
     @Override
@@ -15,7 +15,6 @@ public class MembershipMessageHandler extends MessageHandler<MembershipMessage> 
         Store store = getStore();
 
         boolean moreRecent = false;
-
         for (MembershipEvent receivedMembershipEvent : membershipMessage.getMembershipLog()) {
             if (store.addMembershipEvent(receivedMembershipEvent)) moreRecent = true;
         }

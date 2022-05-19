@@ -34,9 +34,9 @@ public class Utils {
         return (lhs && !rhs) || (!lhs && rhs);
     }
 
-    public static String hash(String value) throws NoSuchAlgorithmException {
+    public static String hash(byte[] value) throws NoSuchAlgorithmException {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-        byte[] encodedHash = messageDigest.digest(value.getBytes(StandardCharsets.UTF_8));
+        byte[] encodedHash = messageDigest.digest(value);
 
         HexFormat hexFormat = HexFormat.of().withDelimiter(":");
         String[] hexValues = hexFormat.formatHex(encodedHash).split(":");
@@ -48,5 +48,11 @@ public class Utils {
 
         System.out.println(new BigInteger(hexString.toString(), 16));
         return hexString.toString();
+    }
+
+    public static float getAngle(String hash){
+        BigInteger bigInteger = new BigInteger(hash, 16);
+        BigInteger mod = bigInteger.mod(new BigInteger("36500"));
+        return mod.floatValue() / 100;
     }
 }

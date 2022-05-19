@@ -5,7 +5,7 @@ import java.util.Objects;
 public class JoinLeaveMessage extends Message {
     int membershipCounter;
 
-    public JoinLeaveMessage(char[] id, int port, int membershipCounter) {
+    public JoinLeaveMessage(String id, int port, int membershipCounter) {
         super(id, port);
         this.membershipCounter = membershipCounter;
     }

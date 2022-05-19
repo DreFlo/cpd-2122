@@ -7,15 +7,15 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public abstract class Message implements Serializable {
-    char[] id;
+    String id;
     int port;
 
-    public Message(char[] id, int port) {
+    public Message(String id, int port) {
         this.id = id;
         this.port = port;
     }
 
-    public char[] getId() {
+    public String getId() {
         return id;
     }
 
@@ -52,7 +52,7 @@ public abstract class Message implements Serializable {
     public String toString() {
         return
                 "Type - " + getClass().getName() + "\n" +
-                "Node - " + Utils.keyToString(id) + "\n" +
+                "Node - " + id + "\n" +
                 "Port - " + port + "\n";
     }
 
@@ -60,13 +60,13 @@ public abstract class Message implements Serializable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Message message)) return false;
-        return getPort() == message.getPort() && Arrays.equals(getId(), message.getId());
+        return getPort() == message.getPort() && getId().equals(message.getId());
     }
 
     @Override
     public int hashCode() {
         int result = Objects.hash(getPort());
-        result = 31 * result + Arrays.hashCode(getId());
+        result = 31 * result + Arrays.hashCode(getId().toCharArray());
         return result;
     }
 }

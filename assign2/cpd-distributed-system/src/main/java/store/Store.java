@@ -17,9 +17,9 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
-public class Store implements ClusterMembership, KeyValueStore<String, Object> {
+public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
-    private final char[] id;
+    private final String id;
     private final DatagramSocket clusterSocket;
     private ServerSocket nodeSocket;
     private final Map<char[], char[]> keyNodeTable;
@@ -29,9 +29,9 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
     private final Stack<Message> sentMessages;
     private final Stack<Message> handledReceivedMessages;
     private final List<MembershipEvent> membershipEvents;
-    private Set<ClusterNodeInformation> clusterNodes;
+    private SortedSet<ClusterNodeInformation> clusterNodes;
 
-    Store(char[] id, InetSocketAddress group, int storePort) throws IOException {
+    Store(String id, InetSocketAddress group, int storePort) throws IOException {
         this.id = id;
 
         initializeDirectory();
@@ -55,8 +55,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
         this.membershipEvents = new ArrayList<>();
         initializeMembershipEvents();
 
-        this.clusterNodes = new HashSet<>();
-        this.clusterNodes.add(new ClusterNodeInformation(getId(), getPort()));
+        this.clusterNodes = new TreeSet<>();
+        this.clusterNodes.add(new ClusterNodeInformation(getId(), Utils.getAngle(getId()), getPort()));
     }
 
     public static void main(String[] args) {
@@ -66,7 +66,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
             int Store_port = Integer.parseInt(args[3]);
             InetSocketAddress group = new InetSocketAddress(IP_mcast_addr, IP_mcast_port);
 
-            Store store = new Store(Utils.stringToKey(args[2]), group, Store_port);
+            Store store = new Store(args[2], group, Store_port);
 
             store.join();
             store.listen();
@@ -76,7 +76,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
     }
 
     private void initializeDirectory() {
-        File directory = new File(Utils.keyToString(id));
+        File directory = new File(id);
         if (directory.mkdir()) {
             System.out.println("Created new directory");
         } else {
@@ -85,7 +85,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
     }
 
     private void initializeMembershipEvents() throws IOException {
-        File file = new File(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_log");
+        File file = new File(id + "\\" + "membership_log");
 
         if (file.createNewFile()) {
             System.out.println("Created membership log");
@@ -95,7 +95,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
                 List<String> splitLine = List.of(line.split(" "));
-                this.membershipEvents.add(new MembershipEvent(Utils.stringToKey(splitLine.get(0)), Integer.parseInt(splitLine.get(1))));
+                this.membershipEvents.add(new MembershipEvent(splitLine.get(0), Integer.parseInt(splitLine.get(1))));
             }
             scanner.close();
         }
@@ -113,10 +113,10 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
         else if (oldMembershipEvent.membershipCounter() < newMembershipEvent.membershipCounter()) {
             this.membershipEvents.remove(oldMembershipEvent);
             this.membershipEvents.add(newMembershipEvent);
-            File file = new File(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_log");
+            File file = new File(id + "\\" + "membership_log");
             try (Writer writer = new FileWriter(file)) {
                 for (MembershipEvent membershipEvent : this.membershipEvents) {
-                    writer.write(Utils.keyToString(membershipEvent.nodeId()).concat(" ").concat(Integer.toString(membershipEvent.membershipCounter())).concat("\n"));
+                    writer.write(membershipEvent.nodeId().concat(" ").concat(Integer.toString(membershipEvent.membershipCounter())).concat("\n"));
                 }
             } catch (IOException e) {
                 System.out.println("Could not register new membership event");
@@ -128,7 +128,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
 
     private MembershipEvent checkMembershipEventInLog(MembershipEvent newEvent) {
         for (MembershipEvent membershipEvent : membershipEvents) {
-            if (Arrays.equals(membershipEvent.nodeId(), newEvent.nodeId())) {
+            if (membershipEvent.nodeId().equals(newEvent.nodeId())) {
                 return membershipEvent;
             }
         }
@@ -147,7 +147,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
         this.clusterNodes.add(clusterNodeInformation);
     }
 
-    public char[] getId() {
+    public String getId() {
         return id;
     }
 
@@ -183,27 +183,27 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
         return membershipEvents;
     }
 
-    public Set<ClusterNodeInformation> getClusterNodes() {
+    public SortedSet<ClusterNodeInformation> getClusterNodes() {
         return clusterNodes;
     }
 
     public Store getThis(){return this;}
 
-    public void setClusterNodes(Set<ClusterNodeInformation> clusterNodes) {
+    public void setClusterNodes(SortedSet<ClusterNodeInformation> clusterNodes) {
         this.clusterNodes = clusterNodes;
     }
 
     public void incrementMembershipCounter() throws IOException {
         int membershipCounter = getMembershipCounter();
         membershipCounter++;
-        Writer writer = new FileWriter(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_counter");
+        Writer writer = new FileWriter(id + "\\" + "membership_counter");
         writer.write(Integer.toString(membershipCounter));
         writer.close();
     }
 
     public int getMembershipCounter() throws IOException {
         int membershipCounter = 0;
-        File file = new File(Utils.keyToString(id) + "\\" + Utils.keyToString(id) + "_membership_counter");
+        File file = new File(id + "\\" + "membership_counter");
 
         if (file.createNewFile()) {
             Writer writer = new FileWriter(file);
@@ -233,7 +233,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
                 Future<?> future = executorService.submit(() -> {
                     while (true) {
                         try {
-                            Message message = receive(nodeSocket);
+                            Message message = receive(nodeSocket).getKey();
                             if (message instanceof MembershipMessage membershipMessage) {
                                 messages.add(membershipMessage);
                             }
@@ -284,7 +284,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
     }
 
     public void listen() throws IOException {
-        ExecutorService executorService = Executors.newFixedThreadPool(21);
+        ExecutorService executorService = Executors.newFixedThreadPool(3);
 
         // Ping broadcast with membership every 1 second
         executorService.submit(new MembershipPing(this));
@@ -293,7 +293,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
         executorService.submit(listenTCP());
     }
 
-    public Runnable listenUDP() throws IOException {
+    public Runnable listenUDP() {
+        ExecutorService executorService = Executors.newFixedThreadPool(9);
         return new Runnable() {
             @Override
             public void run() {
@@ -306,7 +307,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
                     }
                     System.out.println("RECEIVED:\n" + message + "\n");
                     try {
-                        MessageHandlerBuilder.get(getThis(), message);
+                        executorService.submit(MessageHandlerBuilder.get(getThis(), message, null));
                     } catch (ExecutionControl.NotImplementedException e) {
                         System.out.println("No handler found: " + e);
                     }
@@ -315,16 +316,31 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
         };
     }
 
+    public void loadServerSocket() throws IOException {
+        if(this.nodeSocket == null || this.nodeSocket.isClosed()){
+            this.nodeSocket = new ServerSocket(this.port);
+            return;
+        }
+    }
+
     public Runnable listenTCP() throws IOException {
-        this.nodeSocket = new ServerSocket(getPort());
+        ExecutorService executorService = Executors.newFixedThreadPool(9);
+        loadServerSocket();
         return new Runnable() {
             @Override
             public void run() {
                 while (true) {
+                    AbstractMap.SimpleEntry<Message, Socket> entry;
                     try {
-                        receiveMessage(getNodeSocket());
+                        entry = receive(getNodeSocket());
                     } catch (IOException e) {
                         throw new RuntimeException(e);
+                    }
+                    System.out.println("RECEIVED:\n" + entry.getKey() + "\n");
+                    try {
+                        executorService.submit(MessageHandlerBuilder.get(getThis(), entry.getKey(), entry.getValue()));
+                    } catch (ExecutionControl.NotImplementedException e) {
+                        System.out.println("No handler found: " + e);
                     }
                 }
             }
@@ -360,19 +376,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
     /**
      * Reads a message from a ServerSocket
      */
-    public Message receive(ServerSocket serverSocket) throws IOException {
-        Socket socket;
-        socket = serverSocket.accept();
-        InputStream inputStream = socket.getInputStream();
-        byte[] bytes = new byte[4096];
-        int read = inputStream.read(bytes);
-        return Message.fromBytes(bytes);
-    }
-
-    /**
-     * Receives a tcp message, which will always be for key-value operations, and handles them
-     */
-    public void receiveMessage(ServerSocket serverSocket) throws IOException {
+    public AbstractMap.SimpleEntry<Message, Socket> receive(ServerSocket serverSocket) throws IOException {
+        System.out.println("H");
         Socket socket;
         socket = serverSocket.accept();
         InputStream inputStream = socket.getInputStream();
@@ -380,19 +385,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
         int read = inputStream.read(bytes);
         Message message = Message.fromBytes(bytes);
 
-        System.out.println("RECEIVED:\n" + message + "\n");
-
-        try {
-            MessageHandlerBuilder.get(getThis(), message).run();
-        } catch (ExecutionControl.NotImplementedException e) {
-            System.out.println("No handler found: " + e);
-        }
-
-        if(message instanceof GetMessage getMessage){
-            PrintWriter writer = new PrintWriter(socket.getOutputStream());
-            writer.write(getMessage.getValue());
-            writer.close();
-        }
+        return new AbstractMap.SimpleEntry<>(message, socket);
     }
 
     /**
@@ -409,33 +402,30 @@ public class Store implements ClusterMembership, KeyValueStore<String, Object> {
     }
 
     @Override
-    public void put(String key, Object value) throws IOException {
+    public void put(String key, byte[] value) throws IOException {
         //Add check if correct node by using hashing and if not send the put request to another
 
-        Writer writer = new FileWriter(Utils.keyToString(id) + "\\" + key);
-        writer.write(value.toString());
-        writer.close();
+        File file = new File(id + "\\" + key);
+        file.createNewFile();
+        FileOutputStream fileOutputStream = new FileOutputStream(file);
+        fileOutputStream.write(value);
     }
 
     @Override
-    public String get(String key) {
+    public byte[] get(String key) throws IOException {
         //Add check if correct node by using hashing and if not send the get request to another
 
         ClassLoader classLoader = Store.class.getClassLoader();
-        InputStream inputStream = classLoader.getResourceAsStream(Utils.keyToString(id) + "\\" + key);
-        String value = new BufferedReader(
-                new InputStreamReader(inputStream, StandardCharsets.UTF_8))
-                .lines()
-                .collect(Collectors.joining("\n"));
+        InputStream inputStream = classLoader.getResourceAsStream(id + "\\" + key);
 
-        return value;
+        return inputStream.readAllBytes();
     }
 
     @Override
     public void delete(String key) {
         //Add check if correct node by using hashing and if not send the delete request to another
 
-        File keyFile = new File(Utils.keyToString(id) + "\\" + key);
+        File keyFile = new File(id + "\\" + key);
         keyFile.delete();
     }
 }

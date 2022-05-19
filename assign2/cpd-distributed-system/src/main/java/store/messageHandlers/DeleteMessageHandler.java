@@ -8,7 +8,7 @@ import java.security.NoSuchAlgorithmException;
 
 public class DeleteMessageHandler extends MessageHandler<DeleteMessage> {
     public DeleteMessageHandler(Store store, DeleteMessage message) {
-        super(store, message);
+        super(store, message, null);
     }
 
     @Override

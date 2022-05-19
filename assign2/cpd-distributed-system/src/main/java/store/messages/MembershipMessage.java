@@ -4,21 +4,18 @@ import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.MembershipEvent;
 import store.Utils;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class MembershipMessage extends Message {
     private final ArrayList<MembershipEvent> membershipLog;
-    private final HashSet<ClusterNodeInformation> clusterNodes;
-    public MembershipMessage(char[] id, int port, List<MembershipEvent> membershipEvents, Set<ClusterNodeInformation> clusterNodes) {
+    private final SortedSet<ClusterNodeInformation> clusterNodes;
+    public MembershipMessage(String id, int port, List<MembershipEvent> membershipEvents, SortedSet<ClusterNodeInformation> clusterNodes) {
         super(id, port);
         this.membershipLog = new ArrayList<>(membershipEvents);
-        this.clusterNodes = new HashSet<>(clusterNodes);
+        this.clusterNodes = clusterNodes;
     }
 
-    public Set<ClusterNodeInformation> getClusterNodes() {
+    public SortedSet<ClusterNodeInformation> getClusterNodes() {
         return clusterNodes;
     }
 
@@ -32,11 +29,13 @@ public class MembershipMessage extends Message {
         stringBuilder.append(super.toString());
         stringBuilder.append("Membership Log:\n");
         for (MembershipEvent membershipEvent : membershipLog) {
-            stringBuilder.append(Utils.keyToString(membershipEvent.nodeId())).append(" ").append(membershipEvent.membershipCounter()).append("\n");
+            stringBuilder.append(membershipEvent.nodeId()).append(" ").append(membershipEvent.membershipCounter())
+                    .append("\n");
         }
         stringBuilder.append("Cluster Nodes:\n");
         for (ClusterNodeInformation clusterNode : clusterNodes) {
-            stringBuilder.append(Utils.keyToString(clusterNode.id())).append(" ").append(clusterNode.port()).append("\n");
+            stringBuilder.append(clusterNode.id()).append(" ").append(clusterNode.port()).append(" ")
+                    .append(Utils.getAngle(clusterNode.id())).append("\n");
         }
         return stringBuilder.toString();
     }

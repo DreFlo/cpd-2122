@@ -15,7 +15,7 @@ import java.util.Stack;
 
 public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
     public JoinLeaveMessageHandler(Store store, JoinLeaveMessage message) {
-        super(store, message);
+        super(store, message, null);
     }
 
     @Override
@@ -32,7 +32,7 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
             Message receivedMessage = receivedMessagesStack.pop();
 
             if (receivedMessage instanceof JoinLeaveMessage joinLeaveMessage) {
-                if (Utils.keyToString(joinLeaveMessage.getId()).equals(Utils.keyToString(getMessage().getId()))) {
+                if (joinLeaveMessage.getId().equals(getMessage().getId())) {
                     if ((joinLeaveMessage.isLeave() && !getMessage().isLeave()) || (!joinLeaveMessage.isLeave() && getMessage().isLeave())) {
                         registerMembershipEventInStore();
                         skip = true;
@@ -66,11 +66,13 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
         getStore().addMembershipEvent(new MembershipEvent(getMessage().getId(), getMessage().getMembershipCounter()));
         if (getMessage().isLeave()) {
             System.out.println("Removing node from cluster");
-            getStore().removeNodeFromClusterRecord(new ClusterNodeInformation(getMessage().getId(), getMessage().getPort()));
+            getStore().removeNodeFromClusterRecord(new ClusterNodeInformation(
+                    getMessage().getId(), Utils.getAngle(getMessage().getId()), getMessage().getPort()));
         }
         else {
             System.out.println("Adding node to cluster");
-            getStore().addNodeToClusterRecord(new ClusterNodeInformation(getMessage().getId(), getMessage().getPort()));
+            getStore().addNodeToClusterRecord(new ClusterNodeInformation(
+                    getMessage().getId(), Utils.getAngle(getMessage().getId()),getMessage().getPort()));
         }
     }
 }

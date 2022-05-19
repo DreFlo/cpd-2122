@@ -1,4 +1,6 @@
 import static java.lang.Integer.parseInt;
+
+import store.Store;
 import store.Utils;
 import store.messages.DeleteMessage;
 import store.messages.GetMessage;
@@ -9,9 +11,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 
@@ -36,7 +40,6 @@ public class TestClient {
         Integer port = parseInt(arg[1]);
 
         String operation = args[1];
-        Socket socket = new Socket(InetAddress.getByName(ipAddress), port);
         switch (operation){
             case "put":
                 String filePath = args[2];
@@ -44,38 +47,45 @@ public class TestClient {
 
                 ClassLoader classLoader = TestClient.class.getClassLoader();
                 InputStream inputStream = classLoader.getResourceAsStream(filePath);
-                String value = new BufferedReader(
-                        new InputStreamReader(inputStream, StandardCharsets.UTF_8))
-                        .lines()
-                        .collect(Collectors.joining("\n"));
+                byte[] value = inputStream.readAllBytes();
 
                 String key = Utils.hash(value);
 
                 //NAO REMOVER PRINT - OBRIGATORIO TER
                 System.out.println("Test Client Put\nKey: " + key);
 
-                PutMessage putMessage = new PutMessage(new char[1], port, key, value);
+                PutMessage putMessage = new PutMessage("", port, key, value);
+
+                Socket socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(putMessage.toBytes());
                 socket.close();
                 break;
             case "get":
                 String hexSymbols = args[2];
-                GetMessage getMessage = new GetMessage(new char[1], port, hexSymbols);
+                GetMessage getMessage = new GetMessage("", port, hexSymbols);
+                socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(getMessage.toBytes());
 
-                InputStreamReader streamReader = new InputStreamReader(socket.getInputStream());
-                BufferedReader reader = new BufferedReader(streamReader);
-                String received = reader.lines().collect(Collectors.joining("\n"));
-                System.out.println("Test Client Get:\n" + received);
+                byte[] valueReceived = socket.getInputStream().readAllBytes();
+                System.out.println("Test Client Get:\n" + new String(valueReceived));
                 socket.close();
                 break;
             case "delete":
                 hexSymbols = args[2];
-                DeleteMessage deleteMessage = new DeleteMessage(new char[1], port, hexSymbols);
+                DeleteMessage deleteMessage = new DeleteMessage("", port, hexSymbols);
+                socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(deleteMessage.toBytes());
                 socket.close();
                 break;
             case "join":
+                String id = Utils.hash(args[0].getBytes(StandardCharsets.UTF_8));
+                ArrayList<String> storeArgs = new ArrayList<>();
+                storeArgs.add(ipAddress);
+                storeArgs.add("7373");
+                storeArgs.add(id);
+                storeArgs.add(port.toString());
+                Store.main(storeArgs.toArray(new String[0]));
+                break;
             case "leave":
                 break;
             default:

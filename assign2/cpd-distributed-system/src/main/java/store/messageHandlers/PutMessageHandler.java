@@ -10,7 +10,7 @@ import java.util.Scanner;
 
 public class PutMessageHandler extends MessageHandler<PutMessage> {
     public PutMessageHandler(Store store, PutMessage message) {
-        super(store, message);
+        super(store, message, null);
     }
 
     @Override
