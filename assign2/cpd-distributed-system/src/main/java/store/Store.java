@@ -1,9 +1,7 @@
 package store;
 
 import jdk.jshell.spi.ExecutionControl;
-import store.messageHandlers.MessageHandler;
 import store.messageHandlers.MessageHandlerBuilder;
-import store.messages.GetMessage;
 import store.messages.JoinLeaveMessage;
 import store.messages.MembershipMessage;
 import store.messages.Message;
@@ -12,10 +10,8 @@ import store.storeRecords.MembershipEvent;
 
 import java.io.*;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
@@ -25,6 +21,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     private final Map<char[], char[]> keyNodeTable;
     private final InetSocketAddress group;
     private final int port;
+
+    private final String ipAddress;
     private final NetworkInterface networkInterface;
     private final Stack<Message> sentMessages;
     private final Stack<Message> handledReceivedMessages;
@@ -37,6 +35,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         initializeDirectory();
 
         this.port = storePort;
+        this.ipAddress = InetAddress.getLocalHost().getHostAddress();
 
         this.clusterSocket = new DatagramSocket(null);
         this.clusterSocket.setReuseAddress(true);
@@ -56,7 +55,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         initializeMembershipEvents();
 
         this.clusterNodes = new TreeSet<>();
-        this.clusterNodes.add(new ClusterNodeInformation(getId(), Utils.getAngle(getId()), getPort()));
+        this.clusterNodes.add(new ClusterNodeInformation(getId(), getIpAddress(), getPort(), Utils.getAngle(getId())));
     }
 
     public static void main(String[] args) {
@@ -189,6 +188,10 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     public Store getThis(){return this;}
 
+    public String getIpAddress() {
+        return ipAddress;
+    }
+
     public void setClusterNodes(SortedSet<ClusterNodeInformation> clusterNodes) {
         this.clusterNodes = clusterNodes;
     }
@@ -225,7 +228,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
             Set<MembershipMessage> messages = new HashSet<>();
 
             for (int i = 0; i < 3; i++) {
-                sendUDP(new JoinLeaveMessage(id, getPort(), getMembershipCounter()), group);
+                sendUDP(new JoinLeaveMessage(id, getPort(), getIpAddress(), getMembershipCounter()), group);
 
                 ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -377,7 +380,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
      * Reads a message from a ServerSocket
      */
     public AbstractMap.SimpleEntry<Message, Socket> receive(ServerSocket serverSocket) throws IOException {
-        System.out.println("H");
         Socket socket;
         socket = serverSocket.accept();
         InputStream inputStream = socket.getInputStream();
@@ -403,18 +405,15 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     @Override
     public void put(String key, byte[] value) throws IOException {
-        //Add check if correct node by using hashing and if not send the put request to another
-
         File file = new File(id + "\\" + key);
         file.createNewFile();
         FileOutputStream fileOutputStream = new FileOutputStream(file);
         fileOutputStream.write(value);
+        fileOutputStream.close();
     }
 
     @Override
     public byte[] get(String key) throws IOException {
-        //Add check if correct node by using hashing and if not send the get request to another
-
         ClassLoader classLoader = Store.class.getClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(id + "\\" + key);
 
@@ -423,8 +422,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     @Override
     public void delete(String key) {
-        //Add check if correct node by using hashing and if not send the delete request to another
-
         File keyFile = new File(id + "\\" + key);
         keyFile.delete();
     }

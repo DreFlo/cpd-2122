@@ -53,6 +53,7 @@ public class TestClient {
 
                 //NAO REMOVER PRINT - OBRIGATORIO TER
                 System.out.println("Test Client Put\nKey: " + key);
+                System.out.println("Angle: " + Utils.getAngle(key));
 
                 PutMessage putMessage = new PutMessage("", port, key, value);
 

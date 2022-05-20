@@ -53,7 +53,7 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
         System.out.println("Arrived");
 
         try (Socket socket = new Socket("127.0.0.1", getMessage().getPort())){
-            MembershipMessage response = new MembershipMessage(getStore().getId(), getStore().getPort(), getStore().getMostRecentMembershipEvents(), getStore().getClusterNodes());
+            MembershipMessage response = new MembershipMessage(getStore().getId(), getStore().getPort(), getStore().getIpAddress(), getStore().getMostRecentMembershipEvents(), getStore().getClusterNodes());
             getStore().sendTCP(response, socket);
             System.out.println("Responded to JoinLeaveMessage");
         } catch (IOException e) {
@@ -67,12 +67,12 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
         if (getMessage().isLeave()) {
             System.out.println("Removing node from cluster");
             getStore().removeNodeFromClusterRecord(new ClusterNodeInformation(
-                    getMessage().getId(), Utils.getAngle(getMessage().getId()), getMessage().getPort()));
+                    getMessage().getId(), getMessage().getIpAddress(), getMessage().getPort(), Utils.getAngle(getMessage().getId())));
         }
         else {
             System.out.println("Adding node to cluster");
             getStore().addNodeToClusterRecord(new ClusterNodeInformation(
-                    getMessage().getId(), Utils.getAngle(getMessage().getId()),getMessage().getPort()));
+                    getMessage().getId(), getMessage().getIpAddress(),getMessage().getPort(), Utils.getAngle(getMessage().getId())));
         }
     }
 }

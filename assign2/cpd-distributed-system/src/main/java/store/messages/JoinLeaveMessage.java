@@ -4,9 +4,11 @@ import java.util.Objects;
 
 public class JoinLeaveMessage extends Message {
     int membershipCounter;
+    private final String ipAddress;
 
-    public JoinLeaveMessage(String id, int port, int membershipCounter) {
+    public JoinLeaveMessage(String id, int port, String ipAddress, int membershipCounter) {
         super(id, port);
+        this.ipAddress = ipAddress;
         this.membershipCounter = membershipCounter;
     }
 
@@ -16,6 +18,10 @@ public class JoinLeaveMessage extends Message {
 
     public int getMembershipCounter() {
         return membershipCounter;
+    }
+
+    public String getIpAddress() {
+        return ipAddress;
     }
 
     @Override

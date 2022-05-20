@@ -16,7 +16,7 @@ public class MembershipPing implements Runnable{
         while (true) {
             try {
                 Thread.sleep(1_000L * store.getClusterNodes().size());
-                store.sendUDP(new MembershipMessage(store.getId(), store.getPort(), store.getMostRecentMembershipEvents(), store.getClusterNodes()), store.getGroup());
+                store.sendUDP(new MembershipMessage(store.getId(), store.getPort(), store.getIpAddress(), store.getMostRecentMembershipEvents(), store.getClusterNodes()), store.getGroup());
             } catch (IOException e) {
                 System.out.println("Could not broadcast membership message. Error: " + e);
             } catch (InterruptedException e) {

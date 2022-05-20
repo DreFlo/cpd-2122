@@ -1,5 +1,7 @@
 package store;
 
+import store.storeRecords.ClusterNodeInformation;
+
 import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -7,6 +9,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.SortedSet;
 
 public class Utils {
     public static char[] stringToKey(String stringKey) {
@@ -54,5 +58,35 @@ public class Utils {
         BigInteger bigInteger = new BigInteger(hash, 16);
         BigInteger mod = bigInteger.mod(new BigInteger("36500"));
         return mod.floatValue() / 100;
+    }
+
+    public static ClusterNodeInformation getClosestNode(List<ClusterNodeInformation> nodeList, float keyAngle){
+        if((keyAngle < nodeList.get(0).angle()) || (keyAngle > nodeList.get(nodeList.size() - 1).angle())){
+            return nodeList.get(0);
+        }
+
+        int start = 0, end = nodeList.size(), mid = 0;
+        while(start < end){
+            mid = (start + end) / 2;
+
+            if(nodeList.get(mid).angle() == keyAngle){
+                return nodeList.get(mid);
+            }
+
+            if(keyAngle < nodeList.get(mid).angle()){
+                if(mid > 0 && keyAngle > nodeList.get(mid - 1).angle()){
+                    return nodeList.get(mid);
+                }
+                else end = mid;
+            }
+            else{
+                if(mid < nodeList.size() - 1 && keyAngle < nodeList.get(mid + 1).angle()){
+                    return nodeList.get(mid + 1);
+                }
+                else start = mid + 1;
+            }
+        }
+
+        return nodeList.get(mid);
     }
 }
