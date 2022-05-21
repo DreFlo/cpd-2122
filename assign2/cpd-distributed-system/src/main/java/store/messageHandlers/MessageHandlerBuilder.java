@@ -26,6 +26,8 @@ public class MessageHandlerBuilder {
             return new GetMessageHandler(store, getMessage, responseSocket);
         } else if (message instanceof SuccessorMessage successorMessage) {
             return new SuccessorMessageHandler(store, successorMessage);
+        } else if (message instanceof TestLeaveMessage testLeaveMessage) {
+            return new TestLeaveMessageHandler(store, testLeaveMessage);
         } else {
             throw new ExecutionControl.NotImplementedException("Not implemented for message type: " + message.getClass().getName());
         }

@@ -5,6 +5,7 @@ import store.Utils;
 import store.messages.DeleteMessage;
 import store.messages.GetMessage;
 import store.messages.PutMessage;
+import store.messages.TestLeaveMessage;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -84,7 +85,10 @@ public class TestClient {
                 Store.main(storeArgs.toArray(new String[0]));
                 break;
             case "leave":
-                // DON'T KNOW HOW TO SEND A LEAVE FROM HERE
+                TestLeaveMessage testLeaveMessage = new TestLeaveMessage();
+                socket = new Socket(InetAddress.getByName(ipAddress), port);
+                socket.getOutputStream().write(testLeaveMessage.toBytes());
+                socket.close();
                 break;
             default:
                 throw new IllegalArgumentException("Invalid operation");

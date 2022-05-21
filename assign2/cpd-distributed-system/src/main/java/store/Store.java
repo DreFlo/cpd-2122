@@ -28,6 +28,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     private final Stack<Message> handledReceivedMessages;
     private final List<MembershipEvent> membershipEvents;
     private SortedSet<ClusterNodeInformation> clusterNodes;
+    private ExecutorService executorService = null;
 
     Store(String id, InetSocketAddress group, int storePort) throws IOException {
         this.id = id;
@@ -284,7 +285,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
             ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
             Socket socket = new Socket(successor.ipAddress(), successor.port());
             sendTCP(successorMessage, socket);
-            // TODO Send leave message
+            sendUDP(new JoinLeaveMessage(getId(), getPort(), getIpAddress(), getMembershipCounter()), getGroup());
             clusterSocket.leaveGroup(group, networkInterface);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -292,7 +293,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     }
 
     public void listen() throws IOException {
-        ExecutorService executorService = Executors.newFixedThreadPool(3);
+        executorService = Executors.newFixedThreadPool(3);
 
         // Ping broadcast with membership every 1 second
         executorService.submit(new MembershipPing(this));
@@ -440,5 +441,9 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         File keyFile = new File(id + "\\" + key);
         keyFile.delete();
         this.keys.remove(key);
+    }
+
+    public void stopListening() {
+        executorService.shutdownNow();
     }
 }
