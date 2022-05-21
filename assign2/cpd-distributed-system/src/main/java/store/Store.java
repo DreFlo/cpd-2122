@@ -5,6 +5,7 @@ import store.messageHandlers.MessageHandlerBuilder;
 import store.messages.JoinLeaveMessage;
 import store.messages.MembershipMessage;
 import store.messages.Message;
+import store.messages.SuccessorMessage;
 import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.MembershipEvent;
 
@@ -18,10 +19,9 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     private final String id;
     private final DatagramSocket clusterSocket;
     private ServerSocket nodeSocket;
-    private final Map<char[], char[]> keyNodeTable;
+    private final Set<String> keys;
     private final InetSocketAddress group;
     private final int port;
-
     private final String ipAddress;
     private final NetworkInterface networkInterface;
     private final Stack<Message> sentMessages;
@@ -45,7 +45,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         this.nodeSocket = new ServerSocket(port);
 
         this.group = group;
-        this.keyNodeTable = new HashMap<>();
+        this.keys = new HashSet<>();
         this.networkInterface = NetworkInterface.getByName("lo");
 
         this.sentMessages = new Stack<>();
@@ -158,8 +158,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         return nodeSocket;
     }
 
-    public Map<char[], char[]> getKeyNodeTable() {
-        return keyNodeTable;
+    public Set<String> getKeys() {
+        return keys;
     }
 
     public InetSocketAddress getGroup() {
@@ -279,6 +279,11 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     @Override
     public void leave() {
         try {
+            // NOT TESTED
+            SuccessorMessage successorMessage = new SuccessorMessage(getId(), getPort(), getKeyValues());
+            ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
+            Socket socket = new Socket(successor.ipAddress(), successor.port());
+            sendTCP(successorMessage, socket);
             // TODO Send leave message
             clusterSocket.leaveGroup(group, networkInterface);
         } catch (IOException e) {
@@ -403,6 +408,15 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         return this.port;
     }
 
+    private HashMap<String, byte[]> getKeyValues() throws IOException {
+        HashMap<String, byte[]> keyValues = new HashMap<>();
+        for(String key : getKeys()) {
+            byte[] value = get(key);
+            keyValues.put(key, value);
+        }
+        return keyValues;
+    }
+
     @Override
     public void put(String key, byte[] value) throws IOException {
         File file = new File(id + "\\" + key);
@@ -410,6 +424,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         FileOutputStream fileOutputStream = new FileOutputStream(file);
         fileOutputStream.write(value);
         fileOutputStream.close();
+        this.keys.add(key);
     }
 
     @Override
@@ -424,5 +439,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     public void delete(String key) {
         File keyFile = new File(id + "\\" + key);
         keyFile.delete();
+        this.keys.remove(key);
     }
 }

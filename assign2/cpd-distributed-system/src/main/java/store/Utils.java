@@ -7,10 +7,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.SortedSet;
+import java.util.*;
 
 public class Utils {
     public static char[] stringToKey(String stringKey) {
@@ -88,5 +85,17 @@ public class Utils {
         }
 
         return nodeList.get(mid);
+    }
+
+    public static ClusterNodeInformation getSuccessor(List<ClusterNodeInformation> nodeList, String id){
+        int index;
+        for(index = 0; index < nodeList.size(); index++){
+            if (nodeList.get(index).id().equals(id)){
+                break;
+            }
+        }
+
+        if(index == nodeList.size() - 1) return nodeList.get(0);
+        else return nodeList.get(index + 1);
     }
 }

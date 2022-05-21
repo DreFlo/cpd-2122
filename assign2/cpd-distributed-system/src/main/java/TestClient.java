@@ -4,20 +4,15 @@ import store.Store;
 import store.Utils;
 import store.messages.DeleteMessage;
 import store.messages.GetMessage;
-import store.messages.Message;
 import store.messages.PutMessage;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.math.BigInteger;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.stream.Collectors;
 
 public class TestClient {
     final String nodeAp;
@@ -53,6 +48,7 @@ public class TestClient {
 
                 //NAO REMOVER PRINT - OBRIGATORIO TER
                 System.out.println("Test Client Put\nKey: " + key);
+                //O PROXIMO SO PRA TESTES
                 System.out.println("Angle: " + Utils.getAngle(key));
 
                 PutMessage putMessage = new PutMessage("", port, key, value);
@@ -88,6 +84,7 @@ public class TestClient {
                 Store.main(storeArgs.toArray(new String[0]));
                 break;
             case "leave":
+                // DON'T KNOW HOW TO SEND A LEAVE FROM HERE
                 break;
             default:
                 throw new IllegalArgumentException("Invalid operation");

@@ -24,6 +24,8 @@ public class MessageHandlerBuilder {
                 throw new IllegalArgumentException("responseSocket is null");
             }
             return new GetMessageHandler(store, getMessage, responseSocket);
+        } else if (message instanceof SuccessorMessage successorMessage) {
+            return new SuccessorMessageHandler(store, successorMessage);
         } else {
             throw new ExecutionControl.NotImplementedException("Not implemented for message type: " + message.getClass().getName());
         }
