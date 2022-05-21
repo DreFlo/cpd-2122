@@ -22,26 +22,17 @@ public class GetMessageHandler extends MessageHandler<GetMessage> {
                 Utils.getClosestNode(getStore().getClusterNodes().stream().toList(), keyAngle);
 
         if(nodeInformation.id().equals(getStore().getId())){
-            System.out.println("I1");
             byte[] value = getStore().get(getMessage().getKey());
-            System.out.println("I2: " + new String(value));
             getResponseSocket().getOutputStream().write(value);
-            System.out.println("I3");
             getResponseSocket().close();
-            System.out.println("I4");
         }
         else {
-            System.out.println("E1");
             Socket socket = new Socket(nodeInformation.ipAddress(), nodeInformation.port());
-            System.out.println("E2");
-            getStore().sendTCP(getMessage(), socket);
-            System.out.println("E3");
+            socket.getOutputStream().write(getMessage().toBytes());
             byte[] valueReceived = socket.getInputStream().readAllBytes();
-            System.out.println("E4: " + new String(valueReceived));
+            socket.close();
             getResponseSocket().getOutputStream().write(valueReceived);
-            System.out.println("E5");
             getResponseSocket().close();
-            System.out.println("E6");
         }
     }
 }
