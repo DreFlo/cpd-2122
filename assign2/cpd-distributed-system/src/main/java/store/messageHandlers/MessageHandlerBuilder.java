@@ -28,6 +28,8 @@ public class MessageHandlerBuilder {
             return new SuccessorMessageHandler(store, successorMessage);
         } else if (message instanceof TestLeaveMessage testLeaveMessage) {
             return new TestLeaveMessageHandler(store, testLeaveMessage);
+        } else if (message instanceof TestJoinMessage testJoinMessage) {
+            return new TestJoinMessageHandler(store, testJoinMessage);
         } else {
             throw new ExecutionControl.NotImplementedException("Not implemented for message type: " + message.getClass().getName());
         }

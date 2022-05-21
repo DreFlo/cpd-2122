@@ -2,10 +2,7 @@ import static java.lang.Integer.parseInt;
 
 import store.Store;
 import store.Utils;
-import store.messages.DeleteMessage;
-import store.messages.GetMessage;
-import store.messages.PutMessage;
-import store.messages.TestLeaveMessage;
+import store.messages.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -76,13 +73,10 @@ public class TestClient {
                 socket.close();
                 break;
             case "join":
-                String id = Utils.hash(args[0].getBytes(StandardCharsets.UTF_8));
-                ArrayList<String> storeArgs = new ArrayList<>();
-                storeArgs.add(ipAddress);
-                storeArgs.add("7373");
-                storeArgs.add(id);
-                storeArgs.add(port.toString());
-                Store.main(storeArgs.toArray(new String[0]));
+                TestJoinMessage testJoinMessage = new TestJoinMessage();
+                socket = new Socket(InetAddress.getByName(ipAddress), port);
+                socket.getOutputStream().write(testJoinMessage.toBytes());
+                socket.close();
                 break;
             case "leave":
                 TestLeaveMessage testLeaveMessage = new TestLeaveMessage();

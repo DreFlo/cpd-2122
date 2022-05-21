@@ -9,6 +9,7 @@ import store.messages.MembershipMessage;
 import store.messages.Message;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.Stack;
@@ -23,8 +24,6 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
         System.out.println("Handling JoinLeaveMessage\n\n");
 
         Stack<Message> receivedMessagesStack = (Stack<Message>) getStore().getHandledReceivedMessages().clone();
-
-        System.out.println("\n\n\n" + receivedMessagesStack + "\n\n\n");
 
         boolean skip = false;
 
@@ -50,9 +49,7 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
             registerMembershipEventInStore();
         }
 
-        System.out.println("Arrived");
-
-        try (Socket socket = new Socket("127.0.0.1", getMessage().getPort())){
+        try (Socket socket = new Socket(InetAddress.getByName(getMessage().getIpAddress()), getMessage().getPort())){
             MembershipMessage response = new MembershipMessage(getStore().getId(), getStore().getPort(), getStore().getIpAddress(), getStore().getMostRecentMembershipEvents(), getStore().getClusterNodes());
             getStore().sendTCP(response, socket);
             System.out.println("Responded to JoinLeaveMessage");

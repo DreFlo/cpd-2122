@@ -1,16 +1,17 @@
 package store;
 
 import jdk.jshell.spi.ExecutionControl;
+import store.messageHandlers.GetMessageHandler;
 import store.messageHandlers.MessageHandlerBuilder;
-import store.messages.JoinLeaveMessage;
-import store.messages.MembershipMessage;
-import store.messages.Message;
-import store.messages.SuccessorMessage;
+import store.messageHandlers.TestJoinMessageHandler;
+import store.messages.*;
 import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.MembershipEvent;
 
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -66,11 +67,14 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
             int Store_port = Integer.parseInt(args[3]);
             InetSocketAddress group = new InetSocketAddress(IP_mcast_addr, IP_mcast_port);
 
-            Store store = new Store(args[2], group, Store_port);
+            String string = args[0] + args[3];
 
-            store.join();
-            store.listen();
-        } catch (IOException e) {
+            Store store = new Store(Utils.hash(string.getBytes(StandardCharsets.UTF_8)), group, Store_port);
+
+            store.awaitTestClientJoin();
+        } catch (IOException | ExecutionControl.NotImplementedException e) {
+            throw new RuntimeException(e);
+        } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
     }
@@ -81,6 +85,18 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
             System.out.println("Created new directory");
         } else {
             System.out.println("Directory already existed");
+        }
+    }
+
+    private void awaitTestClientJoin() throws IOException, ExecutionControl.NotImplementedException {
+        while (true) {
+            loadServerSocket();
+            Message message = receive(nodeSocket).getKey();
+            if (message instanceof TestJoinMessage testJoinMessage) {
+                TestJoinMessageHandler testJoinMessageHandler = (TestJoinMessageHandler) MessageHandlerBuilder.get(this, testJoinMessage, null);
+                testJoinMessageHandler.run();
+                break;
+            }
         }
     }
 
@@ -237,6 +253,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
                 Future<?> future = executorService.submit(() -> {
                     while (true) {
                         try {
+                            loadServerSocket();
                             Message message = receive(nodeSocket).getKey();
                             if (message instanceof MembershipMessage membershipMessage) {
                                 messages.add(membershipMessage);
@@ -253,11 +270,9 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
                     nodeSocket.close();
                     executorService.shutdownNow();
                 } catch (TimeoutException e) {
-                    if(i == 2){
-                        nodeSocket.close();
-                        future.cancel(true);
-                        executorService.shutdownNow();
-                    }
+                    nodeSocket.close();
+                    future.cancel(true);
+                    executorService.shutdownNow();
                     System.out.println("Timeout number " + (i + 1));
                 } catch (ExecutionException e) {
 
@@ -286,6 +301,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
             Socket socket = new Socket(successor.ipAddress(), successor.port());
             sendTCP(successorMessage, socket);
             sendUDP(new JoinLeaveMessage(getId(), getPort(), getIpAddress(), getMembershipCounter()), getGroup());
+            incrementMembershipCounter();
             clusterSocket.leaveGroup(group, networkInterface);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -297,9 +313,11 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
         // Ping broadcast with membership every 1 second
         executorService.submit(new MembershipPing(this));
-
+        System.out.println("BEFORE UDP");
         executorService.submit(listenUDP());
+        System.out.println("Before TCP");
         executorService.submit(listenTCP());
+        System.out.println("After TCP");
     }
 
     public Runnable listenUDP() {
@@ -326,21 +344,21 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     }
 
     public void loadServerSocket() throws IOException {
-        if(this.nodeSocket == null || this.nodeSocket.isClosed()){
-            this.nodeSocket = new ServerSocket(this.port);
-            return;
+        if(this.nodeSocket != null){
+            this.nodeSocket.close();
         }
+        this.nodeSocket = new ServerSocket(this.port);
     }
 
     public Runnable listenTCP() throws IOException {
         ExecutorService executorService = Executors.newFixedThreadPool(9);
-        loadServerSocket();
         return new Runnable() {
             @Override
             public void run() {
                 while (true) {
                     AbstractMap.SimpleEntry<Message, Socket> entry;
                     try {
+                        loadServerSocket();
                         entry = receive(getNodeSocket());
                     } catch (IOException e) {
                         throw new RuntimeException(e);

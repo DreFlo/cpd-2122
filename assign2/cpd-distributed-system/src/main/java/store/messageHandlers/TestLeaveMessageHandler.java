@@ -10,6 +10,7 @@ public class TestLeaveMessageHandler extends MessageHandler<TestLeaveMessage> {
 
     @Override
     public void handle() {
+        System.out.println("\n\n\n\n\n\nHERE\n\n\n\n\n\n\n");
         System.out.println("Sending leave message");
         getStore().leave();
         getStore().stopListening();
