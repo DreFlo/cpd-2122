@@ -245,15 +245,14 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
             Set<MembershipMessage> messages = new HashSet<>();
 
             for (int i = 0; i < 3; i++) {
+                loadServerSocket();
                 sendUDP(new JoinLeaveMessage(id, getPort(), getIpAddress(), getMembershipCounter()), group);
 
                 ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-
                 Future<?> future = executorService.submit(() -> {
                     while (true) {
                         try {
-                            loadServerSocket();
                             Message message = receive(nodeSocket).getKey();
                             if (message instanceof MembershipMessage membershipMessage) {
                                 messages.add(membershipMessage);
@@ -295,7 +294,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     @Override
     public void leave() {
         try {
-            // NOT TESTED
             SuccessorMessage successorMessage = new SuccessorMessage(getId(), getPort(), getKeyValues());
             ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
             Socket socket = new Socket(successor.ipAddress(), successor.port());
@@ -303,6 +301,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
             sendUDP(new JoinLeaveMessage(getId(), getPort(), getIpAddress(), getMembershipCounter()), getGroup());
             incrementMembershipCounter();
             clusterSocket.leaveGroup(group, networkInterface);
+            Utils.deleteAllKeys(this);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -313,11 +312,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
         // Ping broadcast with membership every 1 second
         executorService.submit(new MembershipPing(this));
-        System.out.println("BEFORE UDP");
         executorService.submit(listenUDP());
-        System.out.println("Before TCP");
         executorService.submit(listenTCP());
-        System.out.println("After TCP");
     }
 
     public Runnable listenUDP() {

@@ -98,4 +98,10 @@ public class Utils {
         if(index == nodeList.size() - 1) return nodeList.get(0);
         else return nodeList.get(index + 1);
     }
+
+    public static void deleteAllKeys(Store store){
+        for(String key : store.getKeys()){
+            store.delete(key);
+        }
+    }
 }

@@ -50,7 +50,9 @@ public class MembershipMessage extends Message {
 
     @Override
     public boolean equals(Object object) {
-        return false;
+        if (this == object) return true;
+        if (!(object instanceof MembershipMessage membershipMessage)) return false;
+        return getPort() == membershipMessage.getPort() && getId().equals(membershipMessage.getId());
     }
 
     @Override
