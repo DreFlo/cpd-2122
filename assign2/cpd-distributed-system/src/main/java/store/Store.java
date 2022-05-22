@@ -1,7 +1,6 @@
 package store;
 
 import jdk.jshell.spi.ExecutionControl;
-import store.messageHandlers.GetMessageHandler;
 import store.messageHandlers.MessageHandlerBuilder;
 import store.messageHandlers.TestJoinMessageHandler;
 import store.messages.*;
@@ -286,7 +285,13 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
             incrementMembershipCounter();
             System.out.println("\nJoined\n");
+            for(MembershipMessage membershipMessage : messages){
+                MessageHandlerBuilder.get(getThis(), membershipMessage, null).run();
+            }
+            getStartingKeyValues();
         } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionControl.NotImplementedException e) {
             throw new RuntimeException(e);
         }
     }
@@ -294,10 +299,10 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     @Override
     public void leave() {
         try {
-            SuccessorMessage successorMessage = new SuccessorMessage(getId(), getPort(), getKeyValues());
+            LeaveKeyTransferMessage leaveKeyTransferMessage = new LeaveKeyTransferMessage(getId(), getPort(), getKeyValues());
             ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
             Socket socket = new Socket(successor.ipAddress(), successor.port());
-            sendTCP(successorMessage, socket);
+            sendTCP(leaveKeyTransferMessage, socket);
             sendUDP(new JoinLeaveMessage(getId(), getPort(), getIpAddress(), getMembershipCounter()), getGroup());
             incrementMembershipCounter();
             clusterSocket.leaveGroup(group, networkInterface);
@@ -423,13 +428,32 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         return this.port;
     }
 
-    private HashMap<String, byte[]> getKeyValues() throws IOException {
+    public HashMap<String, byte[]> getKeyValues() throws IOException {
         HashMap<String, byte[]> keyValues = new HashMap<>();
         for(String key : getKeys()) {
             byte[] value = get(key);
             keyValues.put(key, value);
         }
         return keyValues;
+    }
+
+    /**
+     * After a node joins the cluster it gets the keys it should store from where the node they were in before
+     */
+    private void getStartingKeyValues() throws IOException {
+        JoinKeyTransferMessage joinKeyTransferMessage = new JoinKeyTransferMessage(getId(), getPort());
+
+        ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
+        if(successor.id().equals(getId())) return;
+        Socket socket = new Socket(successor.ipAddress(), successor.port());
+        socket.getOutputStream().write(joinKeyTransferMessage.toBytes());
+
+        byte[] received = socket.getInputStream().readAllBytes();
+        socket.close();
+        JoinKeyTransferMessage receivedMessage = (JoinKeyTransferMessage) Message.fromBytes(received);
+        for(Map.Entry<String, byte[]> keyValue : receivedMessage.getKeyValues().entrySet()){
+            put(keyValue.getKey(), keyValue.getValue());
+        }
     }
 
     @Override
@@ -446,8 +470,9 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     public byte[] get(String key) throws IOException {
         ClassLoader classLoader = Store.class.getClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(id + "\\" + key);
-
-        return inputStream.readAllBytes();
+        byte[] value = inputStream.readAllBytes();
+        inputStream.close();
+        return value;
     }
 
     @Override

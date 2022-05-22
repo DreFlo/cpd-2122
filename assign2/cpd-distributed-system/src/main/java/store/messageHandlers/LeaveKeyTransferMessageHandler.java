@@ -1,13 +1,13 @@
 package store.messageHandlers;
 
 import store.Store;
-import store.messages.SuccessorMessage;
+import store.messages.LeaveKeyTransferMessage;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 
-public class SuccessorMessageHandler extends MessageHandler<SuccessorMessage> {
-    public SuccessorMessageHandler(Store store, SuccessorMessage message) {
+public class LeaveKeyTransferMessageHandler extends MessageHandler<LeaveKeyTransferMessage> {
+    public LeaveKeyTransferMessageHandler(Store store, LeaveKeyTransferMessage message) {
         super(store, message, null);
     }
 

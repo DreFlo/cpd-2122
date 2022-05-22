@@ -24,8 +24,13 @@ public class MessageHandlerBuilder {
                 throw new IllegalArgumentException("responseSocket is null");
             }
             return new GetMessageHandler(store, getMessage, responseSocket);
-        } else if (message instanceof SuccessorMessage successorMessage) {
-            return new SuccessorMessageHandler(store, successorMessage);
+        } else if (message instanceof LeaveKeyTransferMessage leaveKeyTransferMessage) {
+            return new LeaveKeyTransferMessageHandler(store, leaveKeyTransferMessage);
+        } else if (message instanceof JoinKeyTransferMessage joinKeyTransferMessage) {
+            if (responseSocket == null) {
+                throw new IllegalArgumentException("responseSocket is null");
+            }
+            return new JoinKeyTransferMessageHandler(store, joinKeyTransferMessage, responseSocket);
         } else if (message instanceof TestLeaveMessage testLeaveMessage) {
             return new TestLeaveMessageHandler(store, testLeaveMessage);
         } else if (message instanceof TestJoinMessage testJoinMessage) {
