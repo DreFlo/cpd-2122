@@ -11,6 +11,8 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -18,7 +20,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
     private final String id;
     private final DatagramSocket clusterSocket;
-    private ServerSocket nodeSocket;
     private final Set<String> keys;
     private final InetSocketAddress group;
     private final int port;
@@ -27,8 +28,11 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     private final Stack<Message> sentMessages;
     private final Stack<Message> handledReceivedMessages;
     private final List<MembershipEvent> membershipEvents;
+    private ServerSocket nodeSocket;
     private SortedSet<ClusterNodeInformation> clusterNodes;
     private ExecutorService executorService = null;
+
+    private Instant lastMembershipUpdateTime;
 
     Store(String id, InetSocketAddress group, int storePort) throws IOException {
         this.id = id;
@@ -56,7 +60,9 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         initializeMembershipEvents();
 
         this.clusterNodes = new TreeSet<>();
-        this.clusterNodes.add(new ClusterNodeInformation(getId(), getIpAddress(), getPort(), Utils.getAngle(getId())));
+        addNodeToClusterRecord(new ClusterNodeInformation(getId(), getIpAddress(), getPort(), Utils.getAngle(getId())));
+
+        this.lastMembershipUpdateTime = Instant.now();
     }
 
     public static void main(String[] args) {
@@ -120,12 +126,12 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     }
 
     public boolean addMembershipEvent(MembershipEvent newMembershipEvent) {
+        lastMembershipUpdateTime = Instant.now();
         MembershipEvent oldMembershipEvent = checkMembershipEventInLog(newMembershipEvent);
         if (oldMembershipEvent == null) {
             this.membershipEvents.add(newMembershipEvent);
             return true;
-        }
-        else if (oldMembershipEvent.membershipCounter() < newMembershipEvent.membershipCounter()) {
+        } else if (oldMembershipEvent.membershipCounter() < newMembershipEvent.membershipCounter()) {
             this.membershipEvents.remove(oldMembershipEvent);
             this.membershipEvents.add(newMembershipEvent);
             File file = new File(id + "\\" + "membership_log");
@@ -202,14 +208,16 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         return clusterNodes;
     }
 
-    public Store getThis(){return this;}
+    public void setClusterNodes(SortedSet<ClusterNodeInformation> clusterNodes) {
+        this.clusterNodes = clusterNodes;
+    }
+
+    public Store getThis() {
+        return this;
+    }
 
     public String getIpAddress() {
         return ipAddress;
-    }
-
-    public void setClusterNodes(SortedSet<ClusterNodeInformation> clusterNodes) {
-        this.clusterNodes = clusterNodes;
     }
 
     public void incrementMembershipCounter() throws IOException {
@@ -279,13 +287,14 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
                 }
 
                 System.out.println(messages);
+                System.out.println(handledReceivedMessages);
 
                 if (messages.size() > 2) break;
             }
 
             incrementMembershipCounter();
             System.out.println("\nJoined\n");
-            for(MembershipMessage membershipMessage : messages){
+            for (MembershipMessage membershipMessage : messages) {
                 MessageHandlerBuilder.get(getThis(), membershipMessage, null).run();
             }
             getStartingKeyValues();
@@ -333,7 +342,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                    System.out.println("RECEIVED:\n" + message + "\n");
+                    //System.out.println("RECEIVED:\n" + message + "\n");
                     try {
                         executorService.submit(MessageHandlerBuilder.get(getThis(), message, null));
                     } catch (ExecutionControl.NotImplementedException e) {
@@ -345,7 +354,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
     }
 
     public void loadServerSocket() throws IOException {
-        if(this.nodeSocket != null){
+        if (this.nodeSocket != null) {
             this.nodeSocket.close();
         }
         this.nodeSocket = new ServerSocket(this.port);
@@ -364,7 +373,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                    System.out.println("RECEIVED:\n" + entry.getKey() + "\n");
+                    //System.out.println("RECEIVED:\n" + entry.getKey() + "\n");
                     try {
                         executorService.submit(MessageHandlerBuilder.get(getThis(), entry.getKey(), entry.getValue()));
                     } catch (ExecutionControl.NotImplementedException e) {
@@ -388,7 +397,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         sendSocket.send(datagramPacket);
         sendSocket.close();
         sentMessages.push(message);
-        System.out.println("SENT BY UDP:\n\n" + message + "\n\n");
+        //System.out.println("SENT BY UDP:\n\n" + message + "\n\n");
     }
 
     /**
@@ -430,7 +439,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     public HashMap<String, byte[]> getKeyValues() throws IOException {
         HashMap<String, byte[]> keyValues = new HashMap<>();
-        for(String key : getKeys()) {
+        for (String key : getKeys()) {
             byte[] value = get(key);
             keyValues.put(key, value);
         }
@@ -444,14 +453,14 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         JoinKeyTransferMessage joinKeyTransferMessage = new JoinKeyTransferMessage(getId(), getPort());
 
         ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
-        if(successor.id().equals(getId())) return;
+        if (successor.id().equals(getId())) return;
         Socket socket = new Socket(successor.ipAddress(), successor.port());
         socket.getOutputStream().write(joinKeyTransferMessage.toBytes());
 
         byte[] received = socket.getInputStream().readAllBytes();
         socket.close();
         JoinKeyTransferMessage receivedMessage = (JoinKeyTransferMessage) Message.fromBytes(received);
-        for(Map.Entry<String, byte[]> keyValue : receivedMessage.getKeyValues().entrySet()){
+        for (Map.Entry<String, byte[]> keyValue : receivedMessage.getKeyValues().entrySet()) {
             put(keyValue.getKey(), keyValue.getValue());
         }
     }
@@ -484,5 +493,10 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     public void stopListening() {
         executorService.shutdownNow();
+    }
+
+    public boolean isStaleNode() {
+        if (getClusterNodes().size() == 1) return false;
+        return Duration.between(lastMembershipUpdateTime, Instant.now()).compareTo(Duration.ofSeconds(3L * getClusterNodes().size())) > 0;
     }
 }

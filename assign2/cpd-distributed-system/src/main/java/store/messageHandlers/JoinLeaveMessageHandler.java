@@ -23,18 +23,23 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
     public void handle() {
         System.out.println("Handling JoinLeaveMessage\n\n");
 
+        if (getStore().isStaleNode()) {
+            System.out.println("This node has stale information, so won't be responding to JoinLeaveMessage");
+            return;
+        }
+
         Stack<Message> receivedMessagesStack = (Stack<Message>) getStore().getHandledReceivedMessages().clone();
 
-        boolean skip = false;
+        boolean registerMembership = false;
 
+        // Ignore repeated JoinLeaveMessage
         while (!receivedMessagesStack.empty()) {
             Message receivedMessage = receivedMessagesStack.pop();
 
             if (receivedMessage instanceof JoinLeaveMessage joinLeaveMessage) {
                 if (joinLeaveMessage.getId().equals(getMessage().getId())) {
                     if ((joinLeaveMessage.isLeave() && !getMessage().isLeave()) || (!joinLeaveMessage.isLeave() && getMessage().isLeave())) {
-                        registerMembershipEventInStore();
-                        skip = true;
+                        registerMembership = true;
                         break;
                     }
                     else {
@@ -45,16 +50,16 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
             }
         }
 
-        if (!skip) {
-            registerMembershipEventInStore();
-        }
-
         try (Socket socket = new Socket(InetAddress.getByName(getMessage().getIpAddress()), getMessage().getPort())){
             MembershipMessage response = new MembershipMessage(getStore().getId(), getStore().getPort(), getStore().getIpAddress(), getStore().getMostRecentMembershipEvents(), getStore().getClusterNodes());
             getStore().sendTCP(response, socket);
             System.out.println("Responded to JoinLeaveMessage");
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+
+        if (registerMembership) {
+            registerMembershipEventInStore();
         }
     }
 

@@ -19,4 +19,8 @@ public record MembershipEvent(String nodeId, int membershipCounter) implements S
         result = 31 * result + Arrays.hashCode(nodeId.toCharArray());
         return result;
     }
+
+    public boolean isLeave() {
+        return (membershipCounter() % 2) == 1;
+    }
 }
