@@ -104,4 +104,13 @@ public class Utils {
             store.delete(key);
         }
     }
+
+    public static ClusterNodeInformation getClusterNodeInformationFromSortedSetById(SortedSet<ClusterNodeInformation> clusterNodes, String nodeId) {
+        for (ClusterNodeInformation clusterNodeInformation : clusterNodes.stream().toList()) {
+            if (Objects.equals(clusterNodeInformation.id(), nodeId)) {
+                return clusterNodeInformation;
+            }
+        }
+        throw new RuntimeException("Node with id: " + nodeId + " not in set");
+    }
 }

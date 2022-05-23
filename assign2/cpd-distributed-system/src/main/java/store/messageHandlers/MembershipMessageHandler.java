@@ -1,12 +1,11 @@
 package store.messageHandlers;
 
 import store.Store;
+import store.Utils;
 import store.messages.MembershipMessage;
-import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.MembershipEvent;
 
-import java.util.Objects;
-import java.util.SortedSet;
+import static store.Utils.getClusterNodeInformationFromSortedSetById;
 
 public class MembershipMessageHandler extends MessageHandler<MembershipMessage> {
     public MembershipMessageHandler(Store store, MembershipMessage message) {
@@ -27,14 +26,5 @@ public class MembershipMessageHandler extends MessageHandler<MembershipMessage> 
                 }
             }
         }
-    }
-
-    private ClusterNodeInformation getClusterNodeInformationFromSortedSetById(SortedSet<ClusterNodeInformation> clusterNodes, String nodeId) {
-        for (ClusterNodeInformation clusterNodeInformation : clusterNodes.stream().toList()) {
-            if (Objects.equals(clusterNodeInformation.id(), nodeId)) {
-                return clusterNodeInformation;
-            }
-        }
-        throw new RuntimeException("Node with id: " + nodeId + " not in set");
     }
 }
