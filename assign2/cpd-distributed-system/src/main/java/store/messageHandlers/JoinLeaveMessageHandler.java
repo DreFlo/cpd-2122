@@ -50,6 +50,8 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
             }
         }
 
+        System.out.println("MessageIP address " + getMessage().getIpAddress());
+
         try (Socket socket = new Socket(InetAddress.getByName(getMessage().getIpAddress()), getMessage().getPort())){
             MembershipMessage response = new MembershipMessage(getStore().getId(), getStore().getPort(), getStore().getIpAddress(), getStore().getMostRecentMembershipEvents(), getStore().getClusterNodes());
             getStore().sendTCP(response, socket);

@@ -34,13 +34,13 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     private Instant lastMembershipUpdateTime;
 
-    Store(String id, InetSocketAddress group, int storePort) throws IOException {
+    Store(String id, InetSocketAddress group, int storePort, String ipAddress) throws IOException {
         this.id = id;
 
         initializeDirectory();
 
         this.port = storePort;
-        this.ipAddress = InetAddress.getLocalHost().getHostAddress();
+        this.ipAddress = ipAddress;
 
         this.clusterSocket = new DatagramSocket(null);
         this.clusterSocket.setReuseAddress(true);
@@ -74,7 +74,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
             String string = args[0] + args[3];
 
-            Store store = new Store(Utils.hash(string.getBytes(StandardCharsets.UTF_8)), group, Store_port);
+            Store store = new Store(Utils.hash(string.getBytes(StandardCharsets.UTF_8)), group, Store_port, args[2]);
 
             store.awaitTestClientJoin();
         } catch (IOException | ExecutionControl.NotImplementedException e) {
@@ -357,7 +357,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         if (this.nodeSocket != null) {
             this.nodeSocket.close();
         }
-        this.nodeSocket = new ServerSocket(this.port);
+        this.nodeSocket = new ServerSocket(getPort(), 50, InetAddress.getByName(getIpAddress()));
     }
 
     public Runnable listenTCP() throws IOException {
