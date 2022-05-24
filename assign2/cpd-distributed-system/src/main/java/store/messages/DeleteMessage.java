@@ -3,8 +3,8 @@ package store.messages;
 public class DeleteMessage extends Message{
     private final String key;
 
-    public DeleteMessage(String id, int port, String key) {
-        super(id, port);
+    public DeleteMessage(int port, String key) {
+        super("", port);
         this.key = key;
     }
 

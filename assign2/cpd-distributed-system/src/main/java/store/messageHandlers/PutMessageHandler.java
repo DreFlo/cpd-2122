@@ -19,22 +19,18 @@ public class PutMessageHandler extends MessageHandler<PutMessage> {
         float keyAngle = Utils.getAngle(getMessage().getKey());
         ClusterNodeInformation nodeInformation =
                 Utils.getClosestNode(getStore().getClusterNodes().stream().toList(), keyAngle);
-
         if(nodeInformation.id().equals(getStore().getId())){
             getStore().put(getMessage().getKey(), getMessage().getValue());
-
             ClusterNodeInformation firstSuccessor = Utils.sendSuccessorKey(
                     getStore(),
                     getStore().getId(),
-                    new AbstractMap.SimpleEntry<String, byte[]>(getMessage().getKey(), getMessage().getValue()));
-
+                    new AbstractMap.SimpleEntry<>(getMessage().getKey(), getMessage().getValue()));
             if(firstSuccessor != null){
                 Utils.sendSuccessorKey(
                         getStore(),
                         firstSuccessor.id(),
-                        new AbstractMap.SimpleEntry<String, byte[]>(getMessage().getKey(), getMessage().getValue()));
+                        new AbstractMap.SimpleEntry<>(getMessage().getKey(), getMessage().getValue()));
             }
-
         }
         else {
             Socket socket = new Socket(nodeInformation.ipAddress(), nodeInformation.port());

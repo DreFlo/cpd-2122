@@ -2,6 +2,7 @@ package store;
 
 import store.messages.SuccessorMessage;
 import store.storeRecords.ClusterNodeInformation;
+import store.storeRecords.Value;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -117,11 +118,11 @@ public class Utils {
         throw new RuntimeException("Node with id: " + nodeId + " not in set");
     }
 
-    public static ClusterNodeInformation sendSuccessorKey(Store store, String id, AbstractMap.SimpleEntry<String, byte[]> keyValue) throws IOException {
+    public static ClusterNodeInformation sendSuccessorKey(Store store, String id, AbstractMap.SimpleEntry<String, Value> keyValue) throws IOException {
         ClusterNodeInformation successor = Utils.getSuccessor(store.getClusterNodes().stream().toList(), id);
         if(store.getId().equals(successor.id())) return null;
 
-        HashMap<String, byte[]> map = new HashMap<>();
+        HashMap<String, Value> map = new HashMap<>();
         map.put(keyValue.getKey(), keyValue.getValue());
         SuccessorMessage successorMessage = new SuccessorMessage(store.getId(), store.getPort(), map);
         Socket firstSocket = new Socket(successor.ipAddress(), successor.port());

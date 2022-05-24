@@ -3,11 +3,16 @@ import static java.lang.Integer.parseInt;
 import store.Store;
 import store.Utils;
 import store.messages.*;
+import store.storeRecords.Value;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Scanner;
@@ -49,7 +54,10 @@ public class TestClient {
                 //O PROXIMO SO PRA TESTES
                 System.out.println("Angle: " + Utils.getAngle(key));
 
-                PutMessage putMessage = new PutMessage("", port, key, value);
+                Path path = Paths.get(filePath);
+                Value value1 = new Value(path.getFileName().toString(), value);
+
+                PutMessage putMessage = new PutMessage(port, key, value1);
 
                 Socket socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(putMessage.toBytes());
@@ -57,17 +65,23 @@ public class TestClient {
                 break;
             case "get":
                 String hexSymbols = args[2];
-                GetMessage getMessage = new GetMessage("", port, hexSymbols);
+                GetMessage getMessage = new GetMessage(port, hexSymbols);
                 socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(getMessage.toBytes());
 
                 byte[] valueReceived = socket.getInputStream().readAllBytes();
-                System.out.println("Test Client Get:\n" + new String(valueReceived));
+                Value value2 = Value.fromBytes(valueReceived);
+
+                File file = new File("received_" + value2.fileName());
+                file.createNewFile();
+                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                fileOutputStream.write(value2.value());
+                fileOutputStream.close();
                 socket.close();
                 break;
             case "delete":
                 hexSymbols = args[2];
-                DeleteMessage deleteMessage = new DeleteMessage("", port, hexSymbols);
+                DeleteMessage deleteMessage = new DeleteMessage(port, hexSymbols);
                 socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(deleteMessage.toBytes());
                 socket.close();

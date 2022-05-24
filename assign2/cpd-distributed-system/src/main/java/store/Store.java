@@ -6,6 +6,7 @@ import store.messageHandlers.TestJoinMessageHandler;
 import store.messages.*;
 import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.MembershipEvent;
+import store.storeRecords.Value;
 
 import java.io.*;
 import java.net.*;
@@ -16,7 +17,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
+public class Store implements ClusterMembership, KeyValueStore<String, Value> {
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
     private final String id;
     private final DatagramSocket clusterSocket;
@@ -332,22 +333,19 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     public Runnable listenUDP() {
         ExecutorService executorService = Executors.newFixedThreadPool(9);
-        return new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    Message message = null;
-                    try {
-                        message = receive(clusterSocket);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    //System.out.println("RECEIVED:\n" + message + "\n");
-                    try {
-                        executorService.submit(MessageHandlerBuilder.get(getThis(), message, null));
-                    } catch (ExecutionControl.NotImplementedException e) {
-                        System.out.println("No handler found: " + e);
-                    }
+        return () -> {
+            while (true) {
+                Message message = null;
+                try {
+                    message = receive(clusterSocket);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                //System.out.println("RECEIVED:\n" + message + "\n");
+                try {
+                    executorService.submit(MessageHandlerBuilder.get(getThis(), message, null));
+                } catch (ExecutionControl.NotImplementedException e) {
+                    System.out.println("No handler found: " + e);
                 }
             }
         };
@@ -362,24 +360,20 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     public Runnable listenTCP() throws IOException {
         ExecutorService executorService = Executors.newFixedThreadPool(9);
-        System.out.println("THIS ANGLE: " + Utils.getAngle(this.id));
-        return new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    AbstractMap.SimpleEntry<Message, Socket> entry;
-                    try {
-                        loadServerSocket();
-                        entry = receive(getNodeSocket());
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    //System.out.println("RECEIVED:\n" + entry.getKey() + "\n");
-                    try {
-                        executorService.submit(MessageHandlerBuilder.get(getThis(), entry.getKey(), entry.getValue()));
-                    } catch (ExecutionControl.NotImplementedException e) {
-                        System.out.println("No handler found: " + e);
-                    }
+        return () -> {
+            while (true) {
+                AbstractMap.SimpleEntry<Message, Socket> entry;
+                try {
+                    loadServerSocket();
+                    entry = receive(getNodeSocket());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                //System.out.println("RECEIVED:\n" + entry.getKey() + "\n");
+                try {
+                    executorService.submit(MessageHandlerBuilder.get(getThis(), entry.getKey(), entry.getValue()));
+                } catch (ExecutionControl.NotImplementedException e) {
+                    System.out.println("No handler found: " + e);
                 }
             }
         };
@@ -421,7 +415,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         byte[] bytes = new byte[4096];
         int read = inputStream.read(bytes);
         Message message = Message.fromBytes(bytes);
-
         return new AbstractMap.SimpleEntry<>(message, socket);
     }
 
@@ -438,10 +431,10 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         return this.port;
     }
 
-    public HashMap<String, byte[]> getKeyValues() throws IOException {
-        HashMap<String, byte[]> keyValues = new HashMap<>();
+    public HashMap<String, Value> getKeyValues() throws IOException {
+        HashMap<String, Value> keyValues = new HashMap<>();
         for (String key : getKeys()) {
-            byte[] value = get(key);
+            Value value = get(key);
             keyValues.put(key, value);
         }
         return keyValues;
@@ -461,28 +454,28 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
         byte[] received = socket.getInputStream().readAllBytes();
         socket.close();
         JoinKeyTransferMessage receivedMessage = (JoinKeyTransferMessage) Message.fromBytes(received);
-        for (Map.Entry<String, byte[]> keyValue : receivedMessage.getKeyValues().entrySet()) {
+        for (Map.Entry<String, Value> keyValue : receivedMessage.getKeyValues().entrySet()) {
             put(keyValue.getKey(), keyValue.getValue());
         }
     }
 
     @Override
-    public void put(String key, byte[] value) throws IOException {
+    public void put(String key, Value value) throws IOException {
         File file = new File(id + "\\" + key);
         file.createNewFile();
         FileOutputStream fileOutputStream = new FileOutputStream(file);
-        fileOutputStream.write(value);
+        fileOutputStream.write(value.toBytes());
         fileOutputStream.close();
         this.keys.add(key);
     }
 
     @Override
-    public byte[] get(String key) throws IOException {
+    public Value get(String key) throws IOException {
         ClassLoader classLoader = Store.class.getClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(id + "\\" + key);
         byte[] value = inputStream.readAllBytes();
         inputStream.close();
-        return value;
+        return Value.fromBytes(value);
     }
 
     @Override

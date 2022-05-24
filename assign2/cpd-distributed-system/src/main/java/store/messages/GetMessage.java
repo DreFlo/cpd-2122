@@ -1,11 +1,13 @@
 package store.messages;
 
+import store.storeRecords.Value;
+
 public class GetMessage extends Message{
     private final String key;
-    private byte[] value;
+    private Value value;
 
-    public GetMessage(String id, int port, String key) {
-        super(id, port);
+    public GetMessage(int port, String key) {
+        super("", port);
         this.key = key;
     }
 
@@ -13,11 +15,11 @@ public class GetMessage extends Message{
         return key;
     }
 
-    public byte[] getValue() {
+    public Value getValue() {
         return value;
     }
 
-    public void setValue(byte[] value) {
+    public void setValue(Value value) {
         this.value = value;
     }
 

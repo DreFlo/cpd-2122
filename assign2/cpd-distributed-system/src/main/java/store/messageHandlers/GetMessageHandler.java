@@ -4,6 +4,7 @@ import store.Store;
 import store.Utils;
 import store.messages.GetMessage;
 import store.storeRecords.ClusterNodeInformation;
+import store.storeRecords.Value;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -22,8 +23,8 @@ public class GetMessageHandler extends MessageHandler<GetMessage> {
                 Utils.getClosestNode(getStore().getClusterNodes().stream().toList(), keyAngle);
 
         if(nodeInformation.id().equals(getStore().getId())){
-            byte[] value = getStore().get(getMessage().getKey());
-            getResponseSocket().getOutputStream().write(value);
+            Value value = getStore().get(getMessage().getKey());
+            getResponseSocket().getOutputStream().write(value.toBytes());
             getResponseSocket().close();
         }
         else {

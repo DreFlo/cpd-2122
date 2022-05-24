@@ -1,11 +1,13 @@
 package store.messages;
 
+import store.storeRecords.Value;
+
 public class PutMessage extends Message {
     private String key;
-    private byte[] value;
+    private Value value;
 
-    public PutMessage(String id, int port, String key, byte[] value) {
-        super(id, port);
+    public PutMessage(int port, String key, Value value) {
+        super("", port);
         this.key = key;
         this.value = value;
     }
@@ -14,7 +16,7 @@ public class PutMessage extends Message {
         return key;
     }
 
-    public byte[] getValue() {
+    public Value getValue() {
         return value;
     }
 
