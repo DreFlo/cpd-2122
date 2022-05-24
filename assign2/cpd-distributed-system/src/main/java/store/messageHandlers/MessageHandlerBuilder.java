@@ -35,6 +35,8 @@ public class MessageHandlerBuilder {
             return new TestLeaveMessageHandler(store, testLeaveMessage);
         } else if (message instanceof TestJoinMessage testJoinMessage) {
             return new TestJoinMessageHandler(store, testJoinMessage);
+        } else if (message instanceof SuccessorMessage successorMessage) {
+            return new SuccessorMessageHandler(store, successorMessage);
         } else {
             throw new ExecutionControl.NotImplementedException("Not implemented for message type: " + message.getClass().getName());
         }

@@ -1,9 +1,12 @@
 package store;
 
+import store.messages.SuccessorMessage;
 import store.storeRecords.ClusterNodeInformation;
 
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.math.BigInteger;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -112,5 +115,18 @@ public class Utils {
             }
         }
         throw new RuntimeException("Node with id: " + nodeId + " not in set");
+    }
+
+    public static ClusterNodeInformation sendSuccessorKey(Store store, String id, AbstractMap.SimpleEntry<String, byte[]> keyValue) throws IOException {
+        ClusterNodeInformation successor = Utils.getSuccessor(store.getClusterNodes().stream().toList(), id);
+        if(store.getId().equals(successor.id())) return null;
+
+        HashMap<String, byte[]> map = new HashMap<>();
+        map.put(keyValue.getKey(), keyValue.getValue());
+        SuccessorMessage successorMessage = new SuccessorMessage(store.getId(), store.getPort(), map);
+        Socket firstSocket = new Socket(successor.ipAddress(), successor.port());
+        store.sendTCP(successorMessage, firstSocket);
+
+        return successor;
     }
 }

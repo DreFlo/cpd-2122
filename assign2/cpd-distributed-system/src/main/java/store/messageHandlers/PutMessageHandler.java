@@ -6,9 +6,8 @@ import store.messages.PutMessage;
 import store.storeRecords.ClusterNodeInformation;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.Socket;
-import java.security.NoSuchAlgorithmException;
+import java.util.AbstractMap;
 
 public class PutMessageHandler extends MessageHandler<PutMessage> {
     public PutMessageHandler(Store store, PutMessage message) {
@@ -23,6 +22,19 @@ public class PutMessageHandler extends MessageHandler<PutMessage> {
 
         if(nodeInformation.id().equals(getStore().getId())){
             getStore().put(getMessage().getKey(), getMessage().getValue());
+
+            ClusterNodeInformation firstSuccessor = Utils.sendSuccessorKey(
+                    getStore(),
+                    getStore().getId(),
+                    new AbstractMap.SimpleEntry<String, byte[]>(getMessage().getKey(), getMessage().getValue()));
+
+            if(firstSuccessor != null){
+                Utils.sendSuccessorKey(
+                        getStore(),
+                        firstSuccessor.id(),
+                        new AbstractMap.SimpleEntry<String, byte[]>(getMessage().getKey(), getMessage().getValue()));
+            }
+
         }
         else {
             Socket socket = new Socket(nodeInformation.ipAddress(), nodeInformation.port());

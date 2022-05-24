@@ -362,6 +362,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, byte[]> {
 
     public Runnable listenTCP() throws IOException {
         ExecutorService executorService = Executors.newFixedThreadPool(9);
+        System.out.println("THIS ANGLE: " + Utils.getAngle(this.id));
         return new Runnable() {
             @Override
             public void run() {

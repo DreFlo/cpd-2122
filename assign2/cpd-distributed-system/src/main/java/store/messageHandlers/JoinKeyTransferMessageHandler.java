@@ -1,5 +1,6 @@
 package store.messageHandlers;
 
+import jdk.jshell.execution.Util;
 import store.Store;
 import store.Utils;
 import store.messages.JoinKeyTransferMessage;
@@ -19,8 +20,10 @@ public class JoinKeyTransferMessageHandler extends MessageHandler<JoinKeyTransfe
     public void handle() throws NoSuchAlgorithmException, IOException {
         HashMap<String, byte[]> keyValues = new HashMap<>();
         float receivedAngle = Utils.getAngle(getMessage().getId());
+        float storeAngle = Utils.getAngle(getStore().getId());
         for(String key : getStore().getKeys().stream().toList()){
-            if(Utils.getAngle(key) <= receivedAngle){
+            float keyAngle = Utils.getAngle(key);
+            if(keyAngle <= receivedAngle || keyAngle > storeAngle){
                 keyValues.put(key, getStore().get(key));
                 getStore().delete(key);
             }
