@@ -16,9 +16,9 @@ public class MessageHandlerBuilder {
         } else if (message instanceof NullMessage nullMessage) {
             return new NullMessageHandler(store, nullMessage);
         } else if (message instanceof PutMessage putMessage) {
-            return new PutMessageHandler(store, putMessage);
+            return new PutMessageHandler(store, putMessage, responseSocket);
         } else if (message instanceof DeleteMessage deleteMessage) {
-            return new DeleteMessageHandler(store, deleteMessage);
+            return new DeleteMessageHandler(store, deleteMessage, responseSocket);
         } else if (message instanceof GetMessage getMessage) {
             if (responseSocket == null) {
                 throw new IllegalArgumentException("responseSocket is null");
@@ -37,6 +37,8 @@ public class MessageHandlerBuilder {
             return new TestJoinMessageHandler(store, testJoinMessage);
         } else if (message instanceof SuccessorMessage successorMessage) {
             return new SuccessorMessageHandler(store, successorMessage);
+        } else if (message instanceof CheckReplicationMessage checkReplicationMessage) {
+            return new CheckReplicationMessageHandler(store, checkReplicationMessage);
         } else {
             throw new ExecutionControl.NotImplementedException("Not implemented for message type: " + message.getClass().getName());
         }

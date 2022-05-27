@@ -3,12 +3,15 @@ import static java.lang.Integer.parseInt;
 import store.Store;
 import store.Utils;
 import store.messages.*;
+import store.storeRecords.NullValue;
+import store.storeRecords.TombstoneValue;
 import store.storeRecords.Value;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -50,7 +53,7 @@ public class TestClient {
                 String key = Utils.hash(value);
 
                 //NAO REMOVER PRINT - OBRIGATORIO TER
-                System.out.println("Test Client Put\nKey: " + key);
+                System.out.println("TestClient Put\nKey: " + key);
                 //O PROXIMO SO PRA TESTES
                 System.out.println("Angle: " + Utils.getAngle(key));
 
@@ -61,29 +64,57 @@ public class TestClient {
 
                 Socket socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(putMessage.toBytes());
+                byte[] valueReceived = socket.getInputStream().readAllBytes();
+                System.out.println(new String(valueReceived));
                 socket.close();
                 break;
             case "get":
                 String hexSymbols = args[2];
+                try{
+                    new BigInteger(hexSymbols, 16);
+                } catch (NumberFormatException e){
+                    System.out.println("Hash is not in correct format.");
+                    break;
+                }
+
                 GetMessage getMessage = new GetMessage(port, hexSymbols);
                 socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(getMessage.toBytes());
 
-                byte[] valueReceived = socket.getInputStream().readAllBytes();
+                valueReceived = socket.getInputStream().readAllBytes();
+                socket.close();
                 Value value2 = Value.fromBytes(valueReceived);
+                if(value2 instanceof TombstoneValue){
+                    System.out.println("File has been deleted.");
+                    break;
+                }
+                else if(value2 instanceof NullValue){
+                    System.out.println("File doesn't exist.");
+                    break;
+                }
 
-                File file = new File("received_" + value2.fileName());
+                String newFileName = "received_" + value2.getFilename();
+                File file = new File(newFileName);
                 file.createNewFile();
                 FileOutputStream fileOutputStream = new FileOutputStream(file);
-                fileOutputStream.write(value2.value());
+                fileOutputStream.write(value2.getValue());
                 fileOutputStream.close();
-                socket.close();
+                System.out.println("Get file successful.\nCreated file with name: " + newFileName);
                 break;
             case "delete":
                 hexSymbols = args[2];
+                try{
+                    new BigInteger(hexSymbols, 16);
+                } catch (NumberFormatException e){
+                    System.out.println("Hash is not in correct format.");
+                    break;
+                }
+
                 DeleteMessage deleteMessage = new DeleteMessage(port, hexSymbols);
                 socket = new Socket(InetAddress.getByName(ipAddress), port);
                 socket.getOutputStream().write(deleteMessage.toBytes());
+                valueReceived = socket.getInputStream().readAllBytes();
+                System.out.println(new String(valueReceived));
                 socket.close();
                 break;
             case "join":

@@ -7,11 +7,12 @@ import store.storeRecords.ClusterNodeInformation;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 
 public class DeleteMessageHandler extends MessageHandler<DeleteMessage> {
-    public DeleteMessageHandler(Store store, DeleteMessage message) {
-        super(store, message, null);
+    public DeleteMessageHandler(Store store, DeleteMessage message, Socket responseSocket) {
+        super(store, message, responseSocket);
     }
 
     @Override
@@ -21,11 +22,17 @@ public class DeleteMessageHandler extends MessageHandler<DeleteMessage> {
                 Utils.getClosestNode(getStore().getClusterNodes().stream().toList(), keyAngle);
 
         if(nodeInformation.id().equals(getStore().getId())){
-            getStore().delete(getMessage().getKey());
+            String result = getStore().delete(getMessage().getKey());
+            getResponseSocket().getOutputStream().write(result.getBytes());
+            getResponseSocket().close();
         }
         else {
             Socket socket = new Socket(nodeInformation.ipAddress(), nodeInformation.port());
-            getStore().sendTCP(getMessage(), socket);
+            socket.getOutputStream().write(getMessage().toBytes());
+            byte[] valueReceived = socket.getInputStream().readAllBytes();
+            socket.close();
+            getResponseSocket().getOutputStream().write(valueReceived);
+            getResponseSocket().close();
         }
     }
 }

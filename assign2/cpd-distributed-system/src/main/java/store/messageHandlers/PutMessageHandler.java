@@ -7,11 +7,12 @@ import store.storeRecords.ClusterNodeInformation;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 
 public class PutMessageHandler extends MessageHandler<PutMessage> {
-    public PutMessageHandler(Store store, PutMessage message) {
-        super(store, message, null);
+    public PutMessageHandler(Store store, PutMessage message, Socket responseSocket) {
+        super(store, message, responseSocket);
     }
 
     @Override
@@ -20,7 +21,7 @@ public class PutMessageHandler extends MessageHandler<PutMessage> {
         ClusterNodeInformation nodeInformation =
                 Utils.getClosestNode(getStore().getClusterNodes().stream().toList(), keyAngle);
         if(nodeInformation.id().equals(getStore().getId())){
-            getStore().put(getMessage().getKey(), getMessage().getValue());
+            String result = getStore().put(getMessage().getKey(), getMessage().getValue());
             ClusterNodeInformation firstSuccessor = Utils.sendSuccessorKey(
                     getStore(),
                     getStore().getId(),
@@ -31,10 +32,16 @@ public class PutMessageHandler extends MessageHandler<PutMessage> {
                         firstSuccessor.id(),
                         new AbstractMap.SimpleEntry<>(getMessage().getKey(), getMessage().getValue()));
             }
+            getResponseSocket().getOutputStream().write(result.getBytes());
+            getResponseSocket().close();
         }
         else {
             Socket socket = new Socket(nodeInformation.ipAddress(), nodeInformation.port());
-            getStore().sendTCP(getMessage(), socket);
+            socket.getOutputStream().write(getMessage().toBytes());
+            byte[] valueReceived = socket.getInputStream().readAllBytes();
+            socket.close();
+            getResponseSocket().getOutputStream().write(valueReceived);
+            getResponseSocket().close();
         }
     }
 }

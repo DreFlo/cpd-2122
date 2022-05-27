@@ -2,9 +2,11 @@ package store;
 
 import store.messages.SuccessorMessage;
 import store.storeRecords.ClusterNodeInformation;
+import store.storeRecords.TombstoneValue;
 import store.storeRecords.Value;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.net.Socket;
@@ -103,7 +105,7 @@ public class Utils {
         else return nodeList.get(index + 1);
     }
 
-    public static void deleteAllKeys(Store store){
+    public static void deleteAllKeys(Store store) throws IOException {
         for(String key : store.getKeys()){
             store.delete(key);
         }
@@ -129,5 +131,25 @@ public class Utils {
         store.sendTCP(successorMessage, firstSocket);
 
         return successor;
+    }
+
+    public static List<ClusterNodeInformation> getThreeNodesForKey(Store store, String key){
+        List<ClusterNodeInformation> nodes = new ArrayList<>();
+        float keyAngle = Utils.getAngle(key);
+        ClusterNodeInformation ownerNode = Utils.getClosestNode(store.getClusterNodes().stream().toList(), keyAngle);
+        ClusterNodeInformation firstSuccessor = Utils.getSuccessor(store.getClusterNodes().stream().toList(), ownerNode.id());
+        ClusterNodeInformation secondSuccessor = Utils.getSuccessor(store.getClusterNodes().stream().toList(), firstSuccessor.id());
+        nodes.add(ownerNode);
+        nodes.add(firstSuccessor);
+        nodes.add(secondSuccessor);
+        return nodes;
+    }
+
+    public static boolean isTombstone(String id, String key) throws IOException {
+        ClassLoader classLoader = Store.class.getClassLoader();
+        InputStream inputStream = classLoader.getResourceAsStream(id + "\\" + key);
+        byte[] value = inputStream.readAllBytes();
+        inputStream.close();
+        return (Value.fromBytes(value) instanceof TombstoneValue);
     }
 }

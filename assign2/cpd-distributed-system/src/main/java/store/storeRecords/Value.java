@@ -2,7 +2,22 @@ package store.storeRecords;
 
 import java.io.*;
 
-public record Value(String fileName, byte[] value) implements Serializable{
+public class Value implements Serializable{
+    private String filename;
+    private byte[] value;
+    public Value(String filename, byte[] value){
+        this.filename = filename;
+        this.value = value;
+    }
+
+    public byte[] getValue() {
+        return value;
+    }
+
+    public String getFilename() {
+        return filename;
+    }
+
     public byte[] toBytes() throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream out = null;
