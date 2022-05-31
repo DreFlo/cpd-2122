@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.util.AbstractMap;
 
 public class DeleteMessageHandler extends MessageHandler<DeleteMessage> {
     public DeleteMessageHandler(Store store, DeleteMessage message, Socket responseSocket) {
@@ -23,6 +24,16 @@ public class DeleteMessageHandler extends MessageHandler<DeleteMessage> {
 
         if(nodeInformation.id().equals(getStore().getId())){
             String result = getStore().delete(getMessage().getKey());
+            ClusterNodeInformation firstSuccessor =
+                    Utils.getSuccessor(getStore().getClusterNodes().stream().toList(), getStore().getId());
+            Socket socket = new Socket(firstSuccessor.ipAddress(), firstSuccessor.port());
+            getStore().sendTCP(new DeleteMessage(getStore().getPort(), getMessage().getKey()), socket);
+
+            ClusterNodeInformation secondSuccessor =
+                    Utils.getSuccessor(getStore().getClusterNodes().stream().toList(), firstSuccessor.id());
+            socket = new Socket(secondSuccessor.ipAddress(), secondSuccessor.port());
+            getStore().sendTCP(new DeleteMessage(getStore().getPort(), getMessage().getKey()), socket);
+
             getResponseSocket().getOutputStream().write(result.getBytes());
             getResponseSocket().close();
         }

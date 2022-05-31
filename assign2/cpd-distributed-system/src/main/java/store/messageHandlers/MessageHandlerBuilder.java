@@ -35,8 +35,10 @@ public class MessageHandlerBuilder {
             return new TestLeaveMessageHandler(store, testLeaveMessage);
         } else if (message instanceof TestJoinMessage testJoinMessage) {
             return new TestJoinMessageHandler(store, testJoinMessage);
-        } else if (message instanceof SuccessorMessage successorMessage) {
-            return new SuccessorMessageHandler(store, successorMessage);
+        } else if (message instanceof PutSuccessorMessage putSuccessorMessage) {
+            return new PutSuccessorMessageHandler(store, putSuccessorMessage);
+        } else if (message instanceof DeleteSuccessorMessage deleteSuccessorMessage) {
+            return new DeleteSuccessorMessageHandler(store, deleteSuccessorMessage);
         } else if (message instanceof CheckReplicationMessage checkReplicationMessage) {
             return new CheckReplicationMessageHandler(store, checkReplicationMessage);
         } else {

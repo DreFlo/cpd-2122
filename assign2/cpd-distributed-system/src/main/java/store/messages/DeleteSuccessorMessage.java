@@ -1,9 +1,9 @@
 package store.messages;
 
-public class CheckReplicationMessage extends Message{
+public class DeleteSuccessorMessage extends Message{
     private final String key;
 
-    public CheckReplicationMessage(String id, int port, String key) {
+    public DeleteSuccessorMessage(String id, int port, String key) {
         super(id, port);
         this.key = key;
     }

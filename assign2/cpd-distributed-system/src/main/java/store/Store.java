@@ -440,9 +440,22 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
     }
 
     /**
-     * After a node joins the cluster it gets the keys it should store from where the node they were in before
+     * After a node joins the cluster it gets the keys from:
+     *  - files that were already in storage
+     *  - another node which would now split its keys
      */
     private void getStartingKeyValues() throws IOException {
+        File file = new File(id);
+        String[] pathNames = file.list();
+        if(pathNames.length > 2){
+            for(String pathname : pathNames){
+                if(pathname.contains("membership"))
+                    continue;
+                else
+                    this.keys.add(pathname);
+            }
+        }
+
         JoinKeyTransferMessage joinKeyTransferMessage = new JoinKeyTransferMessage(getId(), getPort());
 
         ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
@@ -468,25 +481,28 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
                 }
                 Set<String> keys = getKeys();
                 for(String key : keys){
-                    List<ClusterNodeInformation> threeNodes = Utils.getThreeNodesForKey(getThis(), key);
-                    CheckReplicationMessage checkReplicationMessage;
+                    boolean tombstone;
                     try {
-                        checkReplicationMessage = new CheckReplicationMessage(getId(), getPort(), key, Utils.isTombstone(getId(), key));
+                        tombstone = Utils.isTombstone(getId(), key);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                    for(ClusterNodeInformation clusterNodeInformation : threeNodes){
-                        if(!clusterNodeInformation.id().equals(getId())){
-                            Socket socket;
-                            try {
-                                socket = new Socket(clusterNodeInformation.ipAddress(), clusterNodeInformation.port());
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                            try {
-                                sendTCP(checkReplicationMessage, socket);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
+                    if(!tombstone) {
+                        List<ClusterNodeInformation> threeNodes = Utils.getThreeNodesForKey(getThis(), key);
+                        CheckReplicationMessage checkReplicationMessage = new CheckReplicationMessage(getId(), getPort(), key);
+                        for (ClusterNodeInformation clusterNodeInformation : threeNodes) {
+                            if (!clusterNodeInformation.id().equals(getId())) {
+                                Socket socket;
+                                try {
+                                    socket = new Socket(clusterNodeInformation.ipAddress(), clusterNodeInformation.port());
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                try {
+                                    sendTCP(checkReplicationMessage, socket);
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
                             }
                         }
                     }
@@ -501,7 +517,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
     public String put(String key, Value value) throws IOException {
         File file = new File(id + "\\" + key);
         if (!file.createNewFile()){
-            return "File already existed.";
+            if(!Utils.isTombstone(getId(), key))
+                return "File already existed.";
         }
         FileOutputStream fileOutputStream = new FileOutputStream(file);
         fileOutputStream.write(value.toBytes());

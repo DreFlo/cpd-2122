@@ -1,7 +1,6 @@
 package store.messageHandlers;
 
 import store.Store;
-import store.Utils;
 import store.messages.MembershipMessage;
 import store.storeRecords.MembershipEvent;
 

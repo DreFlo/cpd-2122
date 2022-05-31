@@ -1,13 +1,13 @@
 package store.messageHandlers;
 
 import store.Store;
-import store.messages.SuccessorMessage;
+import store.messages.PutSuccessorMessage;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 
-public class SuccessorMessageHandler extends MessageHandler<SuccessorMessage> {
-    public SuccessorMessageHandler(Store store, SuccessorMessage message) {
+public class PutSuccessorMessageHandler extends MessageHandler<PutSuccessorMessage> {
+    public PutSuccessorMessageHandler(Store store, PutSuccessorMessage message) {
         super(store, message, null);
     }
 

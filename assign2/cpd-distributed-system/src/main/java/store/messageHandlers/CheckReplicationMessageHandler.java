@@ -3,6 +3,7 @@ package store.messageHandlers;
 import store.Store;
 import store.Utils;
 import store.messages.CheckReplicationMessage;
+import store.messages.DeleteSuccessorMessage;
 import store.messages.GetMessage;
 import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.Value;
@@ -27,8 +28,11 @@ public class CheckReplicationMessageHandler extends MessageHandler<CheckReplicat
             byte[] valueReceived = socket.getInputStream().readAllBytes();
             socket.close();
             getStore().put(getMessage().getKey(), Value.fromBytes(valueReceived));
-        } else if (getMessage().getTombstone()) {
-            if(!Utils.isTombstone(getStore().getId(), getMessage().getKey())) getStore().delete(getMessage().getKey());
+        } else if (Utils.isTombstone(getStore().getId(), getMessage().getKey())) {
+            ClusterNodeInformation clusterNodeInformation =
+                    Utils.getClusterNodeInformationFromSortedSetById(getStore().getClusterNodes(), getMessage().getId());
+            Socket socket = new Socket(clusterNodeInformation.ipAddress(), clusterNodeInformation.port());
+            getStore().sendTCP(new DeleteSuccessorMessage(getStore().getId(), getStore().getPort(), getMessage().getKey()), socket);
         }
     }
 }

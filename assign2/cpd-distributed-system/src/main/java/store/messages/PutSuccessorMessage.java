@@ -4,10 +4,10 @@ import store.storeRecords.Value;
 
 import java.util.HashMap;
 
-public class SuccessorMessage extends Message{
+public class PutSuccessorMessage extends Message{
     private HashMap<String, Value> keyValues;
 
-    public SuccessorMessage(String id, int port, HashMap<String, Value> keyValues) {
+    public PutSuccessorMessage(String id, int port, HashMap<String, Value> keyValues) {
         super(id, port);
         this.keyValues = keyValues;
     }

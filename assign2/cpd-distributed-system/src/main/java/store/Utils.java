@@ -1,16 +1,14 @@
 package store;
 
-import store.messages.SuccessorMessage;
+import store.messages.PutSuccessorMessage;
 import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.TombstoneValue;
 import store.storeRecords.Value;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -59,7 +57,7 @@ public class Utils {
 
     public static float getAngle(String hash){
         BigInteger bigInteger = new BigInteger(hash, 16);
-        BigInteger mod = bigInteger.mod(new BigInteger("36500"));
+        BigInteger mod = bigInteger.mod(new BigInteger("36000"));
         return mod.floatValue() / 100;
     }
 
@@ -126,9 +124,9 @@ public class Utils {
 
         HashMap<String, Value> map = new HashMap<>();
         map.put(keyValue.getKey(), keyValue.getValue());
-        SuccessorMessage successorMessage = new SuccessorMessage(store.getId(), store.getPort(), map);
+        PutSuccessorMessage putSuccessorMessage = new PutSuccessorMessage(store.getId(), store.getPort(), map);
         Socket firstSocket = new Socket(successor.ipAddress(), successor.port());
-        store.sendTCP(successorMessage, firstSocket);
+        store.sendTCP(putSuccessorMessage, firstSocket);
 
         return successor;
     }
