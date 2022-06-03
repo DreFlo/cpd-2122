@@ -3,6 +3,7 @@ package store.messageHandlers;
 import store.Store;
 import store.Utils;
 import store.messages.DeleteMessage;
+import store.messages.DeleteSuccessorMessage;
 import store.storeRecords.ClusterNodeInformation;
 
 import java.io.IOException;
@@ -27,12 +28,12 @@ public class DeleteMessageHandler extends MessageHandler<DeleteMessage> {
             ClusterNodeInformation firstSuccessor =
                     Utils.getSuccessor(getStore().getClusterNodes().stream().toList(), getStore().getId());
             Socket socket = new Socket(firstSuccessor.ipAddress(), firstSuccessor.port());
-            getStore().sendTCP(new DeleteMessage(getStore().getPort(), getMessage().getKey()), socket);
+            getStore().sendTCP(new DeleteSuccessorMessage(getStore().getId(), getStore().getPort(), getMessage().getKey()), socket);
 
             ClusterNodeInformation secondSuccessor =
                     Utils.getSuccessor(getStore().getClusterNodes().stream().toList(), firstSuccessor.id());
             socket = new Socket(secondSuccessor.ipAddress(), secondSuccessor.port());
-            getStore().sendTCP(new DeleteMessage(getStore().getPort(), getMessage().getKey()), socket);
+            getStore().sendTCP(new DeleteSuccessorMessage(getStore().getId(), getStore().getPort(), getMessage().getKey()), socket);
 
             getResponseSocket().getOutputStream().write(result.getBytes());
             getResponseSocket().close();
