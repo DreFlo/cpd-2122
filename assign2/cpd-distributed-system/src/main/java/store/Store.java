@@ -343,7 +343,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                //System.out.println("RECEIVED:\n" + message + "\n");
+                System.out.println("RECEIVED:\n" + message + "\n\n");
                 try {
                     executorService.submit(MessageHandlerBuilder.get(getThis(), message, null));
                 } catch (ExecutionControl.NotImplementedException e) {
@@ -371,7 +371,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                //System.out.println("RECEIVED:\n" + entry.getKey() + "\n");
+                System.out.println("RECEIVED:\n" + entry.getKey() + "\n\n");
                 try {
                     executorService.submit(MessageHandlerBuilder.get(getThis(), entry.getKey(), entry.getValue()));
                 } catch (ExecutionControl.NotImplementedException e) {
@@ -394,7 +394,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
         sendSocket.send(datagramPacket);
         sendSocket.close();
         sentMessages.push(message);
-        //System.out.println("SENT BY UDP:\n\n" + message + "\n\n");
+        System.out.println("SENT BY UDP:\n" + message + "\n\n");
     }
 
     /**
@@ -404,7 +404,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
         socket.getOutputStream().write(message.toBytes());
         socket.close();
         sentMessages.push(message);
-        System.out.println("SENT BY TCP:\n\n" + message + "\n\n");
+        System.out.println("SENT BY TCP:\n" + message + "\n\n");
     }
 
     /**
