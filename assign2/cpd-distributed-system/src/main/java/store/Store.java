@@ -119,7 +119,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             }
             scanner.close();
         }
-        // TODO PAY ATTENTION TO LIST
         addMembershipEvent(new MembershipEvent(getId(), getMembershipCounter()));
 
     }
@@ -240,6 +239,8 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             membershipCounter = Integer.parseInt(scanner.nextLine());
         }
 
+        System.out.println("\n\nMembership counter - " + membershipCounter + "\n\n");
+
         return membershipCounter;
     }
 
@@ -307,6 +308,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
     @Override
     public void leave() {
         try {
+            executorService.shutdownNow();
             LeaveKeyTransferMessage leaveKeyTransferMessage = new LeaveKeyTransferMessage(getId(), getPort(), getKeyValues());
             ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
             Socket socket = new Socket(successor.ipAddress(), successor.port());
@@ -315,6 +317,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             sendUDP(new JoinLeaveMessage(getId(), getPort(), getIpAddress(), getMembershipCounter()), getGroup());
             incrementMembershipCounter();
             clusterSocket.leaveGroup(group, networkInterface);
+            System.exit(0);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

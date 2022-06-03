@@ -2,6 +2,7 @@ package store.messageHandlers;
 
 import store.Store;
 import store.messages.MembershipMessage;
+import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.MembershipEvent;
 
 import static store.Utils.getClusterNodeInformationFromSortedSetById;
@@ -18,10 +19,16 @@ public class MembershipMessageHandler extends MessageHandler<MembershipMessage> 
 
         for (MembershipEvent receivedMembershipEvent : membershipMessage.getMembershipLog()) {
             if (store.addMembershipEvent(receivedMembershipEvent)) {
-                if (receivedMembershipEvent.isLeave()) {
-                    store.removeNodeFromClusterRecord(getClusterNodeInformationFromSortedSetById(membershipMessage.getClusterNodes(), receivedMembershipEvent.nodeId()));
-                } else {
-                    store.addNodeToClusterRecord(getClusterNodeInformationFromSortedSetById(membershipMessage.getClusterNodes(), receivedMembershipEvent.nodeId()));
+                try {
+                    ClusterNodeInformation clusterNodeInformation = getClusterNodeInformationFromSortedSetById(membershipMessage.getClusterNodes(), receivedMembershipEvent.nodeId());
+                    if (receivedMembershipEvent.isLeave()) {
+                        store.removeNodeFromClusterRecord(clusterNodeInformation);
+                    } else {
+                        store.addNodeToClusterRecord(clusterNodeInformation);
+                    }
+                }
+                catch (RuntimeException e) {
+                    System.out.println("Could not find node: " + receivedMembershipEvent.nodeId() + " in set");
                 }
             }
         }

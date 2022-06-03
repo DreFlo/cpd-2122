@@ -30,8 +30,6 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
 
         Stack<Message> receivedMessagesStack = (Stack<Message>) getStore().getHandledReceivedMessages().clone();
 
-        boolean registerMembership = false;
-
         // Ignore repeated JoinLeaveMessage
         while (!receivedMessagesStack.empty()) {
             Message receivedMessage = receivedMessagesStack.pop();
@@ -39,7 +37,6 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
             if (receivedMessage instanceof JoinLeaveMessage joinLeaveMessage) {
                 if (joinLeaveMessage.getId().equals(getMessage().getId())) {
                     if ((joinLeaveMessage.isLeave() && !getMessage().isLeave()) || (!joinLeaveMessage.isLeave() && getMessage().isLeave())) {
-                        registerMembership = true;
                         break;
                     }
                     else {
@@ -50,19 +47,20 @@ public class JoinLeaveMessageHandler extends MessageHandler<JoinLeaveMessage> {
             }
         }
 
-        System.out.println("MessageIP address " + getMessage().getIpAddress());
-
-        try (Socket socket = new Socket(InetAddress.getByName(getMessage().getIpAddress()), getMessage().getPort())){
-            MembershipMessage response = new MembershipMessage(getStore().getId(), getStore().getPort(), getStore().getIpAddress(), getStore().getMostRecentMembershipEvents(), getStore().getClusterNodes());
-            getStore().sendTCP(response, socket);
-            System.out.println("Responded to JoinLeaveMessage");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        if (!getMessage().isLeave()) {
+            try (Socket socket = new Socket(InetAddress.getByName(getMessage().getIpAddress()), getMessage().getPort())) {
+                MembershipMessage response = new MembershipMessage(getStore().getId(), getStore().getPort(), getStore().getIpAddress(), getStore().getMostRecentMembershipEvents(), getStore().getClusterNodes());
+                getStore().sendTCP(response, socket);
+                System.out.println("Responded to JoinLeaveMessage");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        else {
+            System.out.println("Received leave message, not responding with membership");
         }
 
-        if (registerMembership) {
-            registerMembershipEventInStore();
-        }
+        registerMembershipEventInStore();
     }
 
     private void registerMembershipEventInStore() {
