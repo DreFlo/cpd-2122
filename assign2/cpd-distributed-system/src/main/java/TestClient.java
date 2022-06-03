@@ -13,11 +13,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.Scanner;
 
 public class TestClient {
@@ -52,10 +50,7 @@ public class TestClient {
 
                 String key = Utils.hash(value);
 
-                //NAO REMOVER PRINT - OBRIGATORIO TER
                 System.out.println("TestClient Put\nKey: " + key);
-                //O PROXIMO SO PRA TESTES
-                System.out.println("Angle: " + Utils.getAngle(key));
 
                 Path path = Paths.get(filePath);
                 Value value1 = new Value(path.getFileName().toString(), value);

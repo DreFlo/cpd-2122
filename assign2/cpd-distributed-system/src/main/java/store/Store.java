@@ -60,7 +60,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
 
         this.clusterNodes = new TreeSet<>();
         addNodeToClusterRecord(new ClusterNodeInformation(getId(), getIpAddress(), getPort(), Utils.getAngle(getId())));
-        System.out.println("\n\nAngle:" + Utils.getAngle(getId()) + "\nHash: " + getId() + "\n");
         this.lastMembershipUpdateTime = Instant.now();
     }
 
@@ -83,12 +82,17 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
         }
     }
 
-    private void initializeDirectory() {
+    private void initializeDirectory() throws IOException {
         File directory = new File(id);
         if (directory.mkdir()) {
             System.out.println("Created new directory");
         } else {
             System.out.println("Directory already existed");
+            int counter = getMembershipCounter();
+            if(counter % 2 != 0){
+                incrementMembershipCounter();
+                System.out.println("Node suffered a failure before");
+            }
         }
     }
 
@@ -128,21 +132,26 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
         MembershipEvent oldMembershipEvent = checkMembershipEventInLog(newMembershipEvent);
         if (oldMembershipEvent == null) {
             this.membershipEvents.add(newMembershipEvent);
+            this.writeMembershipEvents();
             return true;
         } else if (oldMembershipEvent.membershipCounter() < newMembershipEvent.membershipCounter()) {
             this.membershipEvents.remove(oldMembershipEvent);
             this.membershipEvents.add(newMembershipEvent);
-            File file = new File(id + "\\" + "membership_log");
-            try (Writer writer = new FileWriter(file)) {
-                for (MembershipEvent membershipEvent : this.membershipEvents) {
-                    writer.write(membershipEvent.nodeId().concat(" ").concat(Integer.toString(membershipEvent.membershipCounter())).concat("\n"));
-                }
-            } catch (IOException e) {
-                System.out.println("Could not register new membership event");
-            }
+            this.writeMembershipEvents();
             return true;
         }
         return false;
+    }
+
+    public void writeMembershipEvents(){
+        File file = new File(id + "\\" + "membership_log");
+        try (Writer writer = new FileWriter(file)) {
+            for (MembershipEvent membershipEvent : this.membershipEvents) {
+                writer.write(membershipEvent.nodeId().concat(" ").concat(Integer.toString(membershipEvent.membershipCounter())).concat("\n"));
+            }
+        } catch (IOException e) {
+            System.out.println("Could not register new membership event");
+        }
     }
 
     private MembershipEvent checkMembershipEventInLog(MembershipEvent newEvent) {
@@ -482,9 +491,6 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
                     Thread.sleep(3000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
-                }
-                for(ClusterNodeInformation clusterNodeInformation : getClusterNodes()){
-                    System.out.println("IN REP NODE: " + clusterNodeInformation.id());
                 }
                 Map<String, Boolean> keys = getKeys();
                 Store currentStore = getThis();
