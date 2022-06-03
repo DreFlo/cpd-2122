@@ -5,6 +5,7 @@ import store.storeRecords.ClusterNodeInformation;
 import store.storeRecords.TombstoneValue;
 import store.storeRecords.Value;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
@@ -103,12 +104,6 @@ public class Utils {
         else return nodeList.get(index + 1);
     }
 
-    public static void deleteAllKeys(Store store) throws IOException {
-        for(String key : store.getKeys()){
-            store.delete(key);
-        }
-    }
-
     public static ClusterNodeInformation getClusterNodeInformationFromSortedSetById(SortedSet<ClusterNodeInformation> clusterNodes, String nodeId) {
         for (ClusterNodeInformation clusterNodeInformation : clusterNodes.stream().toList()) {
             if (Objects.equals(clusterNodeInformation.id(), nodeId)) {
@@ -149,5 +144,15 @@ public class Utils {
         byte[] value = inputStream.readAllBytes();
         inputStream.close();
         return (Value.fromBytes(value) instanceof TombstoneValue);
+    }
+    public static void removeKeyFile(String id, String key){
+        File keyFile = new File(id + "\\" + key);
+        keyFile.delete();
+    }
+
+    public static void removeAllKeyFiles(String id, Set<String> keys){
+        for(String key : keys){
+            Utils.removeKeyFile(id, key);
+        }
     }
 }

@@ -19,7 +19,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
     private static final long STANDARD_TIMEOUT_SECONDS = 3;
     private final String id;
     private final DatagramSocket clusterSocket;
-    private final Set<String> keys;
+    private final HashMap<String, Boolean> keys;
     private final InetSocketAddress group;
     private final int port;
     private final String ipAddress;
@@ -46,10 +46,10 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
         this.clusterSocket.bind(new InetSocketAddress(group.getPort()));
         this.clusterSocket.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true);
 
-        this.nodeSocket = new ServerSocket(port);
+        this.nodeSocket = new ServerSocket(getPort(), 50, InetAddress.getByName(getIpAddress()));
 
         this.group = group;
-        this.keys = new HashSet<>();
+        this.keys = new HashMap<>();
         this.networkInterface = NetworkInterface.getByName("lo");
 
         this.sentMessages = new Stack<>();
@@ -60,7 +60,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
 
         this.clusterNodes = new TreeSet<>();
         addNodeToClusterRecord(new ClusterNodeInformation(getId(), getIpAddress(), getPort(), Utils.getAngle(getId())));
-
+        System.out.println("\n\nAngle:" + Utils.getAngle(getId()) + "\nHash: " + getId() + "\n");
         this.lastMembershipUpdateTime = Instant.now();
     }
 
@@ -71,7 +71,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             int Store_port = Integer.parseInt(args[3]);
             InetSocketAddress group = new InetSocketAddress(IP_mcast_addr, IP_mcast_port);
 
-            String string = args[0] + args[3];
+            String string = args[2] + args[3];
 
             Store store = new Store(Utils.hash(string.getBytes(StandardCharsets.UTF_8)), group, Store_port, args[2]);
 
@@ -179,7 +179,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
         return nodeSocket;
     }
 
-    public Set<String> getKeys() {
+    public HashMap<String, Boolean> getKeys() {
         return keys;
     }
 
@@ -311,10 +311,10 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
             Socket socket = new Socket(successor.ipAddress(), successor.port());
             sendTCP(leaveKeyTransferMessage, socket);
+            Utils.removeAllKeyFiles(getId(), getKeyValues().keySet());
             sendUDP(new JoinLeaveMessage(getId(), getPort(), getIpAddress(), getMembershipCounter()), getGroup());
             incrementMembershipCounter();
             clusterSocket.leaveGroup(group, networkInterface);
-            Utils.deleteAllKeys(this);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -432,7 +432,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
 
     public HashMap<String, Value> getKeyValues() throws IOException {
         HashMap<String, Value> keyValues = new HashMap<>();
-        for (String key : getKeys()) {
+        for (String key : getKeys().keySet()) {
             Value value = get(key);
             keyValues.put(key, value);
         }
@@ -451,8 +451,9 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             for(String pathname : pathNames){
                 if(pathname.contains("membership"))
                     continue;
-                else
-                    this.keys.add(pathname);
+                else {
+                    this.keys.put(pathname, Utils.isTombstone(getId(), pathname));
+                }
             }
         }
 
@@ -479,27 +480,22 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-                Set<String> keys = getKeys();
-                for(String key : keys){
-                    boolean tombstone;
-                    try {
-                        tombstone = Utils.isTombstone(getId(), key);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if(!tombstone) {
-                        List<ClusterNodeInformation> threeNodes = Utils.getThreeNodesForKey(getThis(), key);
-                        CheckReplicationMessage checkReplicationMessage = new CheckReplicationMessage(getId(), getPort(), key);
+                for(ClusterNodeInformation clusterNodeInformation : getClusterNodes()){
+                    System.out.println("IN REP NODE: " + clusterNodeInformation.id());
+                }
+                Map<String, Boolean> keys = getKeys();
+                Store currentStore = getThis();
+                for(Map.Entry<String, Boolean> key : keys.entrySet()){
+                    if(!key.getValue()) {
+                        List<ClusterNodeInformation> threeNodes = Utils.getThreeNodesForKey(currentStore, key.getKey());
+                        CheckReplicationMessage checkReplicationMessage = new CheckReplicationMessage(getId(), getPort(), key.getKey());
                         for (ClusterNodeInformation clusterNodeInformation : threeNodes) {
                             if (!clusterNodeInformation.id().equals(getId())) {
                                 Socket socket;
                                 try {
                                     socket = new Socket(clusterNodeInformation.ipAddress(), clusterNodeInformation.port());
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                                try {
                                     sendTCP(checkReplicationMessage, socket);
+                                    System.out.println("SENT REPLICATION: " + clusterNodeInformation.id() + "\n");
                                 } catch (IOException e) {
                                     throw new RuntimeException(e);
                                 }
@@ -517,20 +513,20 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
     public String put(String key, Value value) throws IOException {
         File file = new File(id + "\\" + key);
         if (!file.createNewFile()){
-            if(!Utils.isTombstone(getId(), key))
+            if(!getKeys().get(key))
                 return "File already existed.";
         }
         FileOutputStream fileOutputStream = new FileOutputStream(file);
         fileOutputStream.write(value.toBytes());
         fileOutputStream.close();
-        this.keys.add(key);
+        this.keys.put(key, value instanceof TombstoneValue);
         return "Put was successful.";
     }
 
     @Override
     public Value get(String key) throws IOException {
-        if(!getKeys().contains(key)) return new NullValue();
-        if(Utils.isTombstone(getId(), key)) return new TombstoneValue();
+        if(!getKeys().containsKey(key)) return new NullValue();
+        if(getKeys().get(key)) return new TombstoneValue();
         ClassLoader classLoader = Store.class.getClassLoader();
         InputStream inputStream = classLoader.getResourceAsStream(id + "\\" + key);
         byte[] value = inputStream.readAllBytes();
@@ -540,12 +536,13 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
 
     @Override
     public String delete(String key) throws IOException {
-        if(!getKeys().contains(key)) return "File doesn't exist";
-        if(Utils.isTombstone(getId(), key)) return "File already deleted.";
+        if(!getKeys().containsKey(key)) return "File doesn't exist";
+        if(getKeys().get(key)) return "File already deleted.";
         File keyFile = new File(id + "\\" + key);
         FileOutputStream fileOutputStream = new FileOutputStream(keyFile);
         fileOutputStream.write((new TombstoneValue()).toBytes());
         fileOutputStream.close();
+        this.keys.replace(key, false, true);
         return "Delete was successful.";
     }
 

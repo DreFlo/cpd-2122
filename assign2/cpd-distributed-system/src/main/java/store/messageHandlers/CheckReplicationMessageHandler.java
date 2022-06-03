@@ -19,7 +19,7 @@ public class CheckReplicationMessageHandler extends MessageHandler<CheckReplicat
 
     @Override
     public void handle() throws NoSuchAlgorithmException, IOException {
-        if (!getStore().getKeys().contains(getMessage().getKey())){
+        if (!getStore().getKeys().containsKey(getMessage().getKey())){
             ClusterNodeInformation nodeInformation =
                     Utils.getClosestNode(getStore().getClusterNodes().stream().toList(), Utils.getAngle(getMessage().getKey()));
             GetMessage getMessage = new GetMessage(nodeInformation.port(), getMessage().getKey());
@@ -28,7 +28,7 @@ public class CheckReplicationMessageHandler extends MessageHandler<CheckReplicat
             byte[] valueReceived = socket.getInputStream().readAllBytes();
             socket.close();
             getStore().put(getMessage().getKey(), Value.fromBytes(valueReceived));
-        } else if (Utils.isTombstone(getStore().getId(), getMessage().getKey())) {
+        } else if (getStore().getKeys().get(getMessage().getKey())) {
             ClusterNodeInformation clusterNodeInformation =
                     Utils.getClusterNodeInformationFromSortedSetById(getStore().getClusterNodes(), getMessage().getId());
             Socket socket = new Socket(clusterNodeInformation.ipAddress(), clusterNodeInformation.port());

@@ -20,11 +20,11 @@ public class JoinKeyTransferMessageHandler extends MessageHandler<JoinKeyTransfe
         HashMap<String, Value> keyValues = new HashMap<>();
         float receivedAngle = Utils.getAngle(getMessage().getId());
         float storeAngle = Utils.getAngle(getStore().getId());
-        for(String key : getStore().getKeys().stream().toList()){
+        for(String key : getStore().getKeys().keySet().stream().toList()){
             float keyAngle = Utils.getAngle(key);
             if(keyAngle <= receivedAngle || keyAngle > storeAngle){
                 keyValues.put(key, getStore().get(key));
-                getStore().delete(key);
+                Utils.removeKeyFile(getStore().getId(), key);
             }
         }
         getMessage().setKeyValues(keyValues);
