@@ -145,14 +145,4 @@ public class Utils {
         inputStream.close();
         return (Value.fromBytes(value) instanceof TombstoneValue);
     }
-    public static void removeKeyFile(String id, String key){
-        File keyFile = new File(id + "\\" + key);
-        keyFile.delete();
-    }
-
-    public static void removeAllKeyFiles(String id, Set<String> keys){
-        for(String key : keys){
-            Utils.removeKeyFile(id, key);
-        }
-    }
 }

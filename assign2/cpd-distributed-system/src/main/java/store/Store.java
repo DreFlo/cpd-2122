@@ -311,7 +311,7 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             ClusterNodeInformation successor = Utils.getSuccessor(getClusterNodes().stream().toList(), getId());
             Socket socket = new Socket(successor.ipAddress(), successor.port());
             sendTCP(leaveKeyTransferMessage, socket);
-            Utils.removeAllKeyFiles(getId(), getKeyValues().keySet());
+            this.removeAllKeyFiles();
             sendUDP(new JoinLeaveMessage(getId(), getPort(), getIpAddress(), getMembershipCounter()), getGroup());
             incrementMembershipCounter();
             clusterSocket.leaveGroup(group, networkInterface);
@@ -507,6 +507,18 @@ public class Store implements ClusterMembership, KeyValueStore<String, Value> {
             }
         };
 
+    }
+
+    public void removeKeyFile(String key){
+        File keyFile = new File(id + "\\" + key);
+        keyFile.delete();
+        this.keys.remove(key);
+    }
+    public void removeAllKeyFiles(){
+        Set<String> keys = getKeys().keySet();
+        for(String key : keys){
+            this.removeKeyFile(key);
+        }
     }
 
     @Override

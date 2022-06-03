@@ -24,7 +24,7 @@ public class JoinKeyTransferMessageHandler extends MessageHandler<JoinKeyTransfe
             float keyAngle = Utils.getAngle(key);
             if(keyAngle <= receivedAngle || keyAngle > storeAngle){
                 keyValues.put(key, getStore().get(key));
-                Utils.removeKeyFile(getStore().getId(), key);
+                getStore().removeKeyFile(key);
             }
         }
         getMessage().setKeyValues(keyValues);
